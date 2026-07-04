@@ -80,44 +80,30 @@ async def get_auth_status():
 @app.get("/api/auth/url")
 async def get_auth_url():
     """Generates Google OAuth callback url for prompt authentication."""
-    if not OAUTH_AVAILABLE:
-        raise HTTPException(
-            status_code=500,
-            detail="Google OAuth library 'google-auth-oauthlib' is missing. Please run the backend inside the venv or install it: pip install google-auth-oauthlib"
-        )
     client_id = os.getenv("GOOGLE_CLIENT_ID", "")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "")
 
-    if not client_id or not client_secret or client_id == "YOUR_GOOGLE_CLIENT_ID":
+    if not client_id or client_id == "YOUR_GOOGLE_CLIENT_ID":
         raise HTTPException(
             status_code=400,
             detail="Google OAuth Credentials are not configured in backend/.env."
         )
 
-    client_config = {
-        "web": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-        }
+    # Construct the authorization URL manually to prevent automatic PKCE code challenge additions
+    from urllib.parse import urlencode
+    
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "prompt": "consent",
+        "include_granted_scopes": "true"
     }
-
-    try:
-        flow = Flow.from_client_config(
-            client_config,
-            scopes=SCOPES,
-            redirect_uri=redirect_uri
-        )
-        auth_url, _ = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent"
-        )
-        return {"url": auth_url}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OAuth Flow initialization failed: {str(e)}")
+    
+    auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
+    return {"url": auth_url}
 
 @app.get("/api/auth/callback")
 async def auth_callback(code: str = None, error: str = None):
