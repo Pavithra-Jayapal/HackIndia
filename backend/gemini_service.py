@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import asyncio
 from typing import Dict, Any
 
 try:
@@ -169,26 +170,48 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
         }
 
         client = genai.Client(api_key=api_key)
+        max_retries = 4
+        base_delay = 2.0
         
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=f"User Prompt: {prompt}",
-            config=genai.types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=response_schema,
-                temperature=0.15
-            )
-        )
-        
-        # Clean up any accidental markdown tags if output was forced
-        cleaned_text = response.text.strip()
-        if cleaned_text.startswith("```"):
-            cleaned_text = re.sub(r"^```(?:json)?\n", "", cleaned_text)
-            cleaned_text = re.sub(r"\n```$", "", cleaned_text)
-            cleaned_text = cleaned_text.strip()
-            
-        return json.loads(cleaned_text)
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=f"User Prompt: {prompt}",
+                    config=genai.types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        response_mime_type="application/json",
+                        response_schema=response_schema,
+                        temperature=0.15
+                    )
+                )
+                
+                # Clean up any accidental markdown tags if output was forced
+                cleaned_text = response.text.strip()
+                if cleaned_text.startswith("```"):
+                    cleaned_text = re.sub(r"^```(?:json)?\n", "", cleaned_text)
+                    cleaned_text = re.sub(r"\n```$", "", cleaned_text)
+                    cleaned_text = cleaned_text.strip()
+                    
+                return json.loads(cleaned_text)
+                
+            except Exception as e:
+                error_str = str(e)
+                is_rate_limit = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower()
+                
+                if is_rate_limit and attempt < max_retries - 1:
+                    sleep_time = (base_delay ** attempt) + (attempt * 0.5)
+                    delay_match = re.search(r"retry in ([\d\.]+)\s*s", error_str, re.IGNORECASE)
+                    if delay_match:
+                        try:
+                            sleep_time = float(delay_match.group(1)) + 0.5
+                        except ValueError:
+                            pass
+                    
+                    print(f"Gemini Rate Limit (429) hit. Retrying in {sleep_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})")
+                    await asyncio.sleep(sleep_time)
+                else:
+                    raise e
 
     except Exception as e:
         print(f"Gemini API failure: {e}")
