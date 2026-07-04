@@ -170,13 +170,13 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
         }
 
         client = genai.Client(api_key=api_key)
-        max_retries = 4
+        max_retries = 3
         base_delay = 2.0
         
         for attempt in range(max_retries):
             try:
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=f"User Prompt: {prompt}",
                     config=genai.types.GenerateContentConfig(
                         system_instruction=system_instruction,
@@ -199,7 +199,10 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
                 error_str = str(e)
                 is_rate_limit = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower()
                 
-                if is_rate_limit and attempt < max_retries - 1:
+                # Detect daily limit exhaustion (which cannot recover immediately)
+                is_daily_limit = "PerDay" in error_str or "limit: 20" in error_str or "daily" in error_str.lower()
+                
+                if is_rate_limit and not is_daily_limit and attempt < max_retries - 1:
                     sleep_time = (base_delay ** attempt) + (attempt * 0.5)
                     delay_match = re.search(r"retry in ([\d\.]+)\s*s", error_str, re.IGNORECASE)
                     if delay_match:
@@ -208,6 +211,11 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
                         except ValueError:
                             pass
                     
+                    # Cap sleep time to 8 seconds to prevent hanging the browser request
+                    if sleep_time > 8.0:
+                        print(f"Gemini sleep request of {sleep_time:.2f}s is too long. Failing fast.")
+                        raise e
+                        
                     print(f"Gemini Rate Limit (429) hit. Retrying in {sleep_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})")
                     await asyncio.sleep(sleep_time)
                 else:
