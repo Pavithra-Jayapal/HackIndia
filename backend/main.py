@@ -155,9 +155,9 @@ async def auth_callback(code: str = None, error: str = None):
 @app.post("/api/emails")
 async def create_email_item(payload: dict = Body(...)):
     """Sends a real email via Gmail API and logs the entry to MongoDB."""
-    to = payload.get("to")
-    subject = payload.get("subject", "Project Notification")
-    body = payload.get("body", "")
+    to = payload.get("to") or payload.get("recipient") or payload.get("email") or payload.get("recipient_email")
+    subject = payload.get("subject") or payload.get("title") or "Project Notification"
+    body = payload.get("body") or payload.get("message") or payload.get("content") or ""
 
     if not to:
         raise HTTPException(status_code=400, detail="Missing 'to' recipient email address.")
@@ -184,11 +184,11 @@ async def create_email_item(payload: dict = Body(...)):
 @app.post("/api/meetings")
 async def create_meeting_item(payload: dict = Body(...)):
     """Schedules a calendar event with a Meet video conference link and invites attendees."""
-    title = payload.get("title", "Project Meeting")
-    date_str = payload.get("date")
-    time_str = payload.get("time")
-    attendees_val = payload.get("attendees", "")
-    agenda = payload.get("agenda", "")
+    title = payload.get("title") or payload.get("subject") or payload.get("name") or payload.get("meeting_title") or "Project Meeting"
+    date_str = payload.get("date") or payload.get("meeting_date") or payload.get("day")
+    time_str = payload.get("time") or payload.get("meeting_time") or payload.get("hour")
+    attendees_val = payload.get("attendees") or payload.get("emails") or payload.get("invitees") or ""
+    agenda = payload.get("agenda") or payload.get("description") or payload.get("notes") or ""
 
     if not date_str or not time_str:
         raise HTTPException(status_code=400, detail="Missing 'date' or 'time' parameter.")
