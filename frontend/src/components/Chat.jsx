@@ -1,10 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useProject } from "../context/ProjectContext";
 import MessageBubble from "./MessageBubble";
-import { Send, Sparkles, Trash2 } from "lucide-react";
+import { Send, Sparkles, Trash2, Key } from "lucide-react";
 
 const Chat = () => {
-  const { chatHistory, isChatLoading, sendChatMessage, clearChatHistory } = useProject();
+  const { 
+    chatHistory, 
+    isChatLoading, 
+    sendChatMessage, 
+    clearChatHistory,
+    googleConnected,
+    connectGoogle
+  } = useProject();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
 
@@ -46,7 +53,8 @@ const Chat = () => {
           <div>
             <h3 style={{ fontSize: "0.95rem", fontWeight: 600 }}>AI Project Assistant</h3>
             <span style={{ fontSize: "0.75rem", color: "#9ca3af", display: "flex", alignItems: "center", gap: "4px" }}>
-              <span className="chat-status-dot"></span> Online - Gemini 2.5 Flash
+              <span className="chat-status-dot" style={{ backgroundColor: googleConnected ? "#10b981" : "#f59e0b" }}></span> 
+              Online - {googleConnected ? "Google Connected" : "Gemini 2.5 Flash"}
             </span>
           </div>
         </div>
@@ -62,6 +70,43 @@ const Chat = () => {
           </button>
         )}
       </div>
+
+      {/* Google Authentication Warning Notice Banner */}
+      {!googleConnected && (
+        <div style={{
+          background: "rgba(245, 158, 11, 0.08)",
+          borderBottom: "1px solid rgba(245, 158, 11, 0.2)",
+          padding: "10px 16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontSize: "0.8rem",
+          color: "#fde047"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Key size={14} style={{ color: "#fbbf24" }} />
+            <span>Google API actions are disabled. Connect account to dispatch emails and meetings.</span>
+          </div>
+          <button 
+            onClick={connectGoogle}
+            className="btn btn-primary"
+            style={{ 
+              padding: "4px 10px", 
+              fontSize: "0.75rem", 
+              background: "#d97706",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              borderRadius: "4px",
+              fontWeight: 600
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = "#b45309"}
+            onMouseOut={(e) => e.currentTarget.style.background = "#d97706"}
+          >
+            Connect Google
+          </button>
+        </div>
+      )}
 
       {/* Chat Messages */}
       <div className="chat-messages">
@@ -83,9 +128,9 @@ const Chat = () => {
               <br />
               <span style={{ color: "#9ca3af", fontStyle: "italic" }}>
                 "Allocate 15 lakh for foundation"<br />
-                "Add an electrical engineer"<br />
-                "Create a safety checklist"<br />
-                "Draft an email to all workers"
+                "Schedule a review meeting tomorrow with developer@gmail.com"<br />
+                "Send an email to contractor@gmail.com detailing updates"<br />
+                "Create a safety checklist"
               </span>
             </p>
           </div>

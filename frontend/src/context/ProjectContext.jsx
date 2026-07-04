@@ -18,6 +18,10 @@ export const ProjectProvider = ({ children }) => {
   const [chatHistory, setChatHistory] = useState([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
 
+  // Google Integration Connection States
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
+
   // Map category keywords to states and setter functions
   const stateMap = {
     workers: { state: workers, setter: setWorkers },
@@ -57,10 +61,45 @@ export const ProjectProvider = ({ children }) => {
     }
   };
 
+  const checkGoogleAuthStatus = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/auth/status`);
+      setGoogleConnected(!!res.data.connected);
+      setGoogleConfigured(!!res.data.configured);
+    } catch (err) {
+      console.error("Error checking Google authentication status:", err);
+    }
+  };
+
   useEffect(() => {
     fetchWorkspaceData();
     fetchChatHistory();
+    checkGoogleAuthStatus();
+
+    // Check if redirect contains authentication status parameter
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") === "success") {
+      alert("Successfully connected your Google Workspace Account!");
+      // Clean query params
+      window.history.replaceState({}, document.title, window.location.pathname);
+      checkGoogleAuthStatus();
+    } else if (params.get("auth") === "error") {
+      alert("Failed to authenticate Google Account: " + params.get("detail"));
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
+
+  // Redirect user to Google OAuth Concent Prompt
+  const connectGoogle = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/auth/url`);
+      if (res.data.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (err) {
+      alert("Google Connection Failed: " + (err.response?.data?.detail || err.message));
+    }
+  };
 
   // 2. Add / Edit Workspace Item
   const saveWorkspaceItem = async (category, item) => {
@@ -100,6 +139,13 @@ export const ProjectProvider = ({ children }) => {
       }
     } catch (err) {
       console.error(`Error saving workspace item in ${category}:`, err);
+      // Intercept Google 401 auth failures
+      if (err.response && err.response.status === 401) {
+        setGoogleConnected(false);
+        if (window.confirm("Google integration requires authentication. Redirect to Google Accounts login page now?")) {
+          connectGoogle();
+        }
+      }
       throw err;
     }
   };
@@ -178,7 +224,7 @@ export const ProjectProvider = ({ children }) => {
   // 7. Clear Conversation History
   const clearChatHistory = async () => {
     try {
-      await axios.delete(`${API_BASE}/clear`);
+      await axios.delete(`${API_BASE}/chat/clear`);
       setChatHistory([]);
     } catch (err) {
       console.error("Error clearing chat history:", err);
@@ -198,6 +244,9 @@ export const ProjectProvider = ({ children }) => {
         notifications,
         chatHistory,
         isChatLoading,
+        googleConnected,
+        googleConfigured,
+        connectGoogle,
         saveWorkspaceItem,
         deleteWorkspaceItem,
         sendChatMessage,
