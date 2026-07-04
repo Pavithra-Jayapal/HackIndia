@@ -194,16 +194,65 @@ const Workspace = () => {
                 {item.agenda}
               </span>
             </div>
+            
+            {/* Clickable links to Google Meet and Calendar */}
+            <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {item.meetUrl && (
+                <a 
+                  href={item.meetUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="btn"
+                  style={{ 
+                    padding: "4px 8px", 
+                    fontSize: "0.75rem", 
+                    background: "#0f766e", 
+                    textDecoration: "none", 
+                    color: "white", 
+                    borderRadius: "4px",
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = "#115e59"}
+                  onMouseOut={(e) => e.currentTarget.style.background = "#0f766e"}
+                >
+                  Join Google Meet
+                </a>
+              )}
+              {item.calendarUrl && (
+                <a 
+                  href={item.calendarUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn"
+                  style={{ 
+                    padding: "4px 8px", 
+                    fontSize: "0.75rem", 
+                    background: "rgba(255, 255, 255, 0.05)", 
+                    textDecoration: "none", 
+                    color: "#d1d5db", 
+                    borderRadius: "4px",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    cursor: "pointer"
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)"}
+                  onMouseOut={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"}
+                >
+                  View Calendar
+                </a>
+              )}
+            </div>
+
             <button 
               onClick={() => handleDelete("meetings", item.id, item.title)} 
               className="btn btn-danger"
-              style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
+              style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem", marginTop: "8px" }}
             >
               <Trash2 size={12} /> Delete
             </button>
           </div>
         );
-
+ 
       case "emails":
         return (
           <div key={item.id} className="item-card">
@@ -215,13 +264,18 @@ const Workspace = () => {
                 <span className="item-subtitle">To: {item.to}</span>
               </div>
             </div>
-            <div style={{ fontSize: "0.8rem", color: "#9ca3af", background: "rgba(0,0,0,0.1)", padding: "8px", borderRadius: "4px", whiteSpace: "pre-line" }}>
+            <div style={{ fontSize: "0.8rem", color: "#d1d5db", background: "rgba(0,0,0,0.1)", padding: "8px", borderRadius: "4px", whiteSpace: "pre-line" }}>
               {item.body}
             </div>
+            {item.gmailMessageId && (
+              <span style={{ fontSize: "0.7rem", color: "#10b981", marginTop: "4px", display: "block", fontWeight: 600 }}>
+                Status: Sent (ID: {item.gmailMessageId})
+              </span>
+            )}
             <button 
               onClick={() => handleDelete("emails", item.id, item.subject)} 
               className="btn btn-danger"
-              style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
+              style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem", marginTop: "8px" }}
             >
               <Trash2 size={12} /> Delete
             </button>
