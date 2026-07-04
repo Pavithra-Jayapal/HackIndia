@@ -9,7 +9,6 @@ import {
   Calendar, 
   Clock, 
   Package, 
-  Map, 
   Trash2,
   HardHat
 } from "lucide-react";
@@ -18,24 +17,23 @@ const Workspace = () => {
   const project = useProject();
   const [activeTab, setActiveTab] = useState("workers");
 
-  // Tabs metadata
+  // Tabs metadata mapping collections
   const tabs = [
     { id: "workers", label: "Workers", icon: User, category: "workers", data: project.workers },
     { id: "budgets", label: "Budgets", icon: DollarSign, category: "budgets", data: project.budgets },
-    { id: "emails", label: "Emails", icon: Mail, category: "emails", data: project.emails },
-    { id: "todos", label: "Todos", icon: CheckSquare, category: "todos", data: project.todos },
-    { id: "notifications", label: "Notifications", icon: Bell, category: "notifications", data: project.notifications },
-    { id: "meetings", label: "Meetings", icon: Calendar, category: "meetings", data: project.meetings },
-    { id: "schedules", label: "Schedules", icon: Clock, category: "schedules", data: project.schedules },
     { id: "inventory", label: "Inventory", icon: Package, category: "inventory", data: project.inventory },
-    { id: "floorplan", label: "Floor Plan", icon: Map, category: "floorplan", data: [] }
+    { id: "todos", label: "Todos", icon: CheckSquare, category: "todos", data: project.todos },
+    { id: "schedules", label: "Schedules", icon: Clock, category: "schedules", data: project.schedules },
+    { id: "meetings", label: "Meetings", icon: Calendar, category: "meetings", data: project.meetings },
+    { id: "emails", label: "Emails", icon: Mail, category: "emails", data: project.emails },
+    { id: "notifications", label: "Alerts", icon: Bell, category: "notifications", data: project.notifications },
   ];
 
   const currentTab = tabs.find(t => t.id === activeTab);
 
   // Delete Action with Confirmation
   const handleDelete = async (category, itemId, itemTitle) => {
-    const message = `Are you sure you want to delete "${itemTitle}"?\n\nThis will remove the MongoDB record, remove the item from this workspace, and remove any active widgets linked to this item in the chat history.`;
+    const message = `Are you sure you want to delete "${itemTitle}"?\n\nThis removes the record from MongoDB, removes the item from this workspace, and removes any active widgets/summary cards linked to it in the chat history.`;
     if (window.confirm(message)) {
       try {
         await project.deleteWorkspaceItem(category, itemId);
@@ -63,7 +61,7 @@ const Workspace = () => {
             <div className="item-meta-grid">
               <span className="meta-label">Phone:</span>
               <span className="meta-value">{item.phone}</span>
-              <span className="meta-label">Monthly Salary:</span>
+              <span className="meta-label">Salary (Monthly):</span>
               <span className="meta-value">₹{Number(item.salary).toLocaleString()}</span>
             </div>
             <button 
@@ -87,7 +85,7 @@ const Workspace = () => {
               <span className="tag tag-info">{item.category}</span>
             </div>
             <div className="item-meta-grid">
-              <span className="meta-label">Allocated Capital:</span>
+              <span className="meta-label">Allocated capital:</span>
               <span className="meta-value" style={{ fontWeight: 600, color: "#f59e0b" }}>
                 ₹{Number(item.amount).toLocaleString()}
               </span>
@@ -102,22 +100,24 @@ const Workspace = () => {
           </div>
         );
 
-      case "emails":
+      case "inventory":
         return (
           <div key={item.id} className="item-card">
             <div className="item-card-header">
               <div>
-                <h4 className="item-title" style={{ maxWidth: "260px", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                  {item.subject}
-                </h4>
-                <span className="item-subtitle">To: {item.to}</span>
+                <h4 className="item-title">{item.itemName}</h4>
+                <span className="item-subtitle">Audit Record</span>
               </div>
+              <span className={`tag ${item.status === "In Stock" ? "tag-success" : item.status === "Low" ? "tag-warning" : "tag-danger"}`}>
+                {item.status}
+              </span>
             </div>
-            <div style={{ fontSize: "0.8rem", color: "#9ca3af", background: "rgba(0,0,0,0.1)", padding: "8px", borderRadius: "4px", whiteSpace: "pre-line" }}>
-              {item.body}
+            <div className="item-meta-grid">
+              <span className="meta-label">Stock Level:</span>
+              <span className="meta-value">{item.quantity} {item.unit}</span>
             </div>
             <button 
-              onClick={() => handleDelete("emails", item.id, item.subject)} 
+              onClick={() => handleDelete("inventory", item.id, item.itemName)} 
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -132,7 +132,7 @@ const Workspace = () => {
             <div className="item-card-header">
               <div>
                 <h4 className="item-title">{item.task}</h4>
-                <span className="item-subtitle">Assigned to: {item.assignedTo}</span>
+                <span className="item-subtitle">Assignee: {item.assignedTo}</span>
               </div>
               <span className={`tag ${item.status === "Completed" ? "tag-success" : "tag-warning"}`}>
                 {item.status}
@@ -152,21 +152,23 @@ const Workspace = () => {
           </div>
         );
 
-      case "notifications":
+      case "schedules":
         return (
           <div key={item.id} className="item-card">
             <div className="item-card-header">
               <div>
-                <h4 className="item-title">{item.title}</h4>
-                <span className="item-subtitle">For: {item.recipient}</span>
+                <h4 className="item-title">{item.activity}</h4>
+                <span className="item-subtitle">Team: {item.assignedTeam}</span>
               </div>
-              <span className={`tag ${item.severity === "Alert" ? "tag-danger" : item.severity === "Warning" ? "tag-warning" : "tag-info"}`}>
-                {item.severity}
-              </span>
             </div>
-            <p style={{ fontSize: "0.8rem", color: "#9ca3af" }}>{item.message}</p>
+            <div className="item-meta-grid">
+              <span className="meta-label">Start Date:</span>
+              <span className="meta-value">{item.startDate}</span>
+              <span className="meta-label">End Date:</span>
+              <span className="meta-value">{item.endDate}</span>
+            </div>
             <button 
-              onClick={() => handleDelete("notifications", item.id, item.title)} 
+              onClick={() => handleDelete("schedules", item.id, item.activity)} 
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -202,23 +204,22 @@ const Workspace = () => {
           </div>
         );
 
-      case "schedules":
+      case "emails":
         return (
           <div key={item.id} className="item-card">
             <div className="item-card-header">
               <div>
-                <h4 className="item-title">{item.activity}</h4>
-                <span className="item-subtitle">Assigned: {item.assignedTeam}</span>
+                <h4 className="item-title" style={{ maxWidth: "220px", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                  {item.subject}
+                </h4>
+                <span className="item-subtitle">To: {item.to}</span>
               </div>
             </div>
-            <div className="item-meta-grid">
-              <span className="meta-label">Start Date:</span>
-              <span className="meta-value">{item.startDate}</span>
-              <span className="meta-label">End Date:</span>
-              <span className="meta-value">{item.endDate}</span>
+            <div style={{ fontSize: "0.8rem", color: "#9ca3af", background: "rgba(0,0,0,0.1)", padding: "8px", borderRadius: "4px", whiteSpace: "pre-line" }}>
+              {item.body}
             </div>
             <button 
-              onClick={() => handleDelete("schedules", item.id, item.activity)} 
+              onClick={() => handleDelete("emails", item.id, item.subject)} 
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -227,24 +228,21 @@ const Workspace = () => {
           </div>
         );
 
-      case "inventory":
+      case "notifications":
         return (
           <div key={item.id} className="item-card">
             <div className="item-card-header">
               <div>
-                <h4 className="item-title">{item.itemName}</h4>
-                <span className="item-subtitle">Audit Record</span>
+                <h4 className="item-title">{item.title}</h4>
+                <span className="item-subtitle">For: {item.recipient}</span>
               </div>
-              <span className={`tag ${item.status === "In Stock" ? "tag-success" : item.status === "Low" ? "tag-warning" : "tag-danger"}`}>
-                {item.status}
+              <span className={`tag ${item.severity === "Alert" ? "tag-danger" : item.severity === "Warning" ? "tag-warning" : "tag-info"}`}>
+                {item.severity}
               </span>
             </div>
-            <div className="item-meta-grid">
-              <span className="meta-label">Stock Level:</span>
-              <span className="meta-value">{item.quantity} {item.unit}</span>
-            </div>
+            <p style={{ fontSize: "0.8rem", color: "#9ca3af" }}>{item.message}</p>
             <button 
-              onClick={() => handleDelete("inventory", item.id, item.itemName)} 
+              onClick={() => handleDelete("notifications", item.id, item.title)} 
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -264,15 +262,16 @@ const Workspace = () => {
       <div className="workspace-header">
         <div className="workspace-title">
           <HardHat size={22} style={{ color: "#10b981" }} />
-          <span>Site Dashboard</span>
+          <span>Project Workspace</span>
         </div>
-        <p className="workspace-subtitle">Persistent Workspace Data Storage</p>
+        <p className="workspace-subtitle">Persistent MongoDB Storage</p>
       </div>
 
-      {/* Horizontal Tabs Navigation */}
+      {/* Navigation Tabs */}
       <div className="workspace-tabs">
         {tabs.map((tab) => {
           const IconComponent = tab.icon;
+          const count = tab.data?.length || 0;
           return (
             <button
               key={tab.id}
@@ -281,7 +280,7 @@ const Workspace = () => {
             >
               <IconComponent size={14} />
               <span>{tab.label}</span>
-              {tab.data.length > 0 && (
+              {count > 0 && (
                 <span style={{ 
                   background: activeTab === tab.id ? "rgba(59, 130, 246, 0.2)" : "rgba(255, 255, 255, 0.05)",
                   color: activeTab === tab.id ? "#3b82f6" : "#9ca3af",
@@ -290,7 +289,7 @@ const Workspace = () => {
                   borderRadius: "9999px",
                   fontWeight: 600
                 }}>
-                  {tab.data.length}
+                  {count}
                 </span>
               )}
             </button>
@@ -298,39 +297,29 @@ const Workspace = () => {
         })}
       </div>
 
-      {/* Workspace Active Section Contents */}
+      {/* Dynamic Content Directory List */}
       <div className="workspace-content">
-        {activeTab === "floorplan" ? (
-          <div className="section-empty" style={{ borderStyle: "solid" }}>
-            <Map size={36} />
-            <h4 style={{ color: "#f3f4f6" }}>Floor Plan Viewer</h4>
-            <p style={{ fontSize: "0.8rem", maxWidth: "260px" }}>
-              Interactive blueprint blueprint visualizer is planned for Phase 2. Upload CAD drawings to view.
-            </p>
-          </div>
-        ) : (
-          <div className="section-container">
-            <div className="section-header">
-              <div className="section-title-wrap">
-                <h3>{currentTab.label} Directory</h3>
-              </div>
+        <div className="section-container">
+          <div className="section-header">
+            <div className="section-title-wrap">
+              <h3>{currentTab.label} Registry</h3>
             </div>
-
-            {currentTab.data.length === 0 ? (
-              <div className="section-empty">
-                <currentTab.icon size={28} />
-                <p style={{ fontSize: "0.85rem" }}>
-                  No {currentTab.label.toLowerCase()} in project database.
-                </p>
-                <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>
-                  Ask AI: "Add a new {currentTab.label.toLowerCase().slice(0, -1)}"
-                </span>
-              </div>
-            ) : (
-              currentTab.data.map((item) => renderItemCard(activeTab, item))
-            )}
           </div>
-        )}
+
+          {currentTab.data.length === 0 ? (
+            <div className="section-empty">
+              <currentTab.icon size={28} />
+              <p style={{ fontSize: "0.85rem" }}>
+                No items recorded in this workspace category.
+              </p>
+              <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>
+                Ask AI: "Register a new {currentTab.label.toLowerCase().slice(0, -1)}"
+              </span>
+            </div>
+          ) : (
+            currentTab.data.map((item) => renderItemCard(activeTab, item))
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,40 +1,41 @@
 import React from "react";
-import { WidgetRegistry } from "../widgets/WidgetRegistry";
 import { CheckCircle } from "lucide-react";
 
-const SummaryCard = ({ widgetType, props, onEdit, onArchive }) => {
-  const config = WidgetRegistry[widgetType];
-  
-  if (!config) {
-    return (
-      <div className="summary-card">
-        <div className="summary-header">
-          <CheckCircle size={16} />
-          <span>Widget Saved</span>
-        </div>
-        <p style={{ fontSize: "0.8rem", color: "#9ca3af" }}>
-          Item was saved successfully to workspace.
-        </p>
-      </div>
-    );
-  }
+const SummaryCard = ({ widget, onEdit, onArchive }) => {
+  if (!widget) return null;
+
+  const { title, fields = [], submittedData = {} } = widget;
 
   return (
     <div className="summary-card">
       <div className="summary-header">
         <CheckCircle size={16} />
-        <span>{config.title.replace("Add ", "").replace("Create ", "").replace("Schedule ", "").replace("Update ", "")} Created</span>
+        <span>{title} Saved</span>
       </div>
 
       <div className="summary-details">
-        {config.summaryFields.map((field) => {
-          const rawValue = props[field.key];
-          const displayValue = field.format ? field.format(rawValue, props) : rawValue;
+        {fields.map((field) => {
+          const val = submittedData[field.name];
+          let displayValue = val;
           
+          // Format numeric amounts / salaries automatically
+          if (
+            field.type === "number" &&
+            (field.name.includes("amount") || 
+             field.name.includes("salary") || 
+             field.name.includes("quantity"))
+          ) {
+            if (field.name.includes("quantity")) {
+              displayValue = `${val} ${submittedData.unit || ""}`;
+            } else {
+              displayValue = `₹${Number(val).toLocaleString()}`;
+            }
+          }
+
           return (
-            <div key={field.key} className="summary-row">
+            <div key={field.name} className="summary-row">
               <span className="summary-label">{field.label}</span>
-              <span className="summary-value" title={rawValue}>
+              <span className="summary-value" title={val}>
                 {displayValue !== undefined && displayValue !== null ? String(displayValue) : "N/A"}
               </span>
             </div>

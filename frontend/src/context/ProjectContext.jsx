@@ -8,12 +8,12 @@ const ProjectContext = createContext(null);
 export const ProjectProvider = ({ children }) => {
   const [workers, setWorkers] = useState([]);
   const [budgets, setBudgets] = useState([]);
-  const [emails, setEmails] = useState([]);
-  const [todos, setTodos] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [meetings, setMeetings] = useState([]);
-  const [schedules, setSchedules] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [todos, setTodos] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [meetings, setMeetings] = useState([]);
+  const [emails, setEmails] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   
   const [chatHistory, setChatHistory] = useState([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -22,12 +22,12 @@ export const ProjectProvider = ({ children }) => {
   const stateMap = {
     workers: { state: workers, setter: setWorkers },
     budgets: { state: budgets, setter: setBudgets },
-    emails: { state: emails, setter: setEmails },
-    todos: { state: todos, setter: setTodos },
-    notifications: { state: notifications, setter: setNotifications },
-    meetings: { state: meetings, setter: setMeetings },
-    schedules: { state: schedules, setter: setSchedules },
     inventory: { state: inventory, setter: setInventory },
+    todos: { state: todos, setter: setTodos },
+    schedules: { state: schedules, setter: setSchedules },
+    meetings: { state: meetings, setter: setMeetings },
+    emails: { state: emails, setter: setEmails },
+    notifications: { state: notifications, setter: setNotifications },
   };
 
   // 1. Fetch entire workspace and chat history on load
@@ -37,12 +37,12 @@ export const ProjectProvider = ({ children }) => {
       const data = res.data;
       if (data.workers) setWorkers(data.workers);
       if (data.budgets) setBudgets(data.budgets);
-      if (data.emails) setEmails(data.emails);
-      if (data.todos) setTodos(data.todos);
-      if (data.notifications) setNotifications(data.notifications);
-      if (data.meetings) setMeetings(data.meetings);
-      if (data.schedules) setSchedules(data.schedules);
       if (data.inventory) setInventory(data.inventory);
+      if (data.todos) setTodos(data.todos);
+      if (data.schedules) setSchedules(data.schedules);
+      if (data.meetings) setMeetings(data.meetings);
+      if (data.emails) setEmails(data.emails);
+      if (data.notifications) setNotifications(data.notifications);
     } catch (err) {
       console.error("Error fetching workspace data:", err);
     }
@@ -75,14 +75,14 @@ export const ProjectProvider = ({ children }) => {
         const { setter } = stateMap[category];
         setter(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
         
-        // Also update any saved widgets in chatHistory that reference this ID
+        // Update corresponding widgets in chat history
         setChatHistory(prevChat => prevChat.map(msg => {
           if (msg.widget && msg.widget.dataId === updatedItem.id) {
             return {
               ...msg,
               widget: {
                 ...msg.widget,
-                props: updatedItem
+                submittedData: updatedItem
               }
             };
           }
@@ -113,7 +113,7 @@ export const ProjectProvider = ({ children }) => {
       const { setter } = stateMap[category];
       setter(prev => prev.filter(item => item.id !== itemId));
       
-      // Update local chatHistory state (cascading delete removal of linked messages)
+      // Cascade delete removal of linked messages
       setChatHistory(prevChat => prevChat.filter(msg => !msg.widget || msg.widget.dataId !== itemId));
     } catch (err) {
       console.error(`Error deleting item ${itemId} from ${category}:`, err);
@@ -125,7 +125,7 @@ export const ProjectProvider = ({ children }) => {
   const sendChatMessage = async (text) => {
     if (!text.trim()) return;
     
-    // Add user message to state immediately for immediate UX feedback
+    // Add user message to state immediately for immediate UX response
     const tempUserMsg = { id: "temp-user", role: "user", text, widget: null };
     setChatHistory(prev => [...prev, tempUserMsg]);
     setIsChatLoading(true);
@@ -134,14 +134,14 @@ export const ProjectProvider = ({ children }) => {
       const response = await axios.post(`${API_BASE}/chat`, { message: text });
       const aiMessage = response.data;
       
-      // Replace temporary user message and append actual model message
+      // Append AI message and sync user message
       setChatHistory(prev => {
         const filtered = prev.filter(m => m.id !== "temp-user");
-        // Refetch chat history to guarantee accurate ID synchronization from MongoDB
         return [...filtered, { id: "temp-user-sync", role: "user", text }, aiMessage];
       });
       
-      // Reload actual chat history from DB to get the real IDs for the user message
+      // Synchronize dashboard items if workspace state was modified by Gemini actions
+      await fetchWorkspaceData();
       await fetchChatHistory();
     } catch (err) {
       console.error("Error sending chat message:", err);
@@ -165,7 +165,7 @@ export const ProjectProvider = ({ children }) => {
     }
   };
 
-  // 6. Archive Chat Card (UI action - removes card, keeps workspace item)
+  // 6. Archive Chat Card (UI action only)
   const archiveChatMessage = async (messageId) => {
     try {
       await axios.delete(`${API_BASE}/chat/message/${messageId}`);
@@ -178,7 +178,7 @@ export const ProjectProvider = ({ children }) => {
   // 7. Clear Conversation History
   const clearChatHistory = async () => {
     try {
-      await axios.delete(`${API_BASE}/chat/clear`);
+      await axios.delete(`${API_BASE}/clear`);
       setChatHistory([]);
     } catch (err) {
       console.error("Error clearing chat history:", err);
@@ -190,12 +190,12 @@ export const ProjectProvider = ({ children }) => {
       value={{
         workers,
         budgets,
-        emails,
-        todos,
-        notifications,
-        meetings,
-        schedules,
         inventory,
+        todos,
+        schedules,
+        meetings,
+        emails,
+        notifications,
         chatHistory,
         isChatLoading,
         saveWorkspaceItem,

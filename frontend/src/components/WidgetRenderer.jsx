@@ -1,30 +1,25 @@
 import React from "react";
-import { WidgetRegistry } from "../widgets/WidgetRegistry";
+import { getActionConfig } from "../widgets/WidgetRegistry";
+import UniversalFormWidget from "../widgets/UniversalFormWidget";
 import SummaryCard from "./SummaryCard";
 
 const WidgetRenderer = ({ 
-  messageId, 
   widget, 
   onSave, 
   onEdit, 
   onArchive,
   onCancelEdit
 }) => {
-  if (!widget || !widget.type) return null;
+  if (!widget) return null;
 
-  const registryItem = WidgetRegistry[widget.type];
-  if (!registryItem) {
-    console.warn(`Widget type "${widget.type}" is not registered in WidgetRegistry.`);
-    return null;
-  }
-
-  const WidgetComponent = registryItem.component;
+  const primaryAction = widget.buttons?.[0]?.action || "createTodo";
+  const config = getActionConfig(primaryAction);
+  const IconComponent = config.icon;
 
   if (widget.status === "saved") {
     return (
       <SummaryCard
-        widgetType={widget.type}
-        props={widget.props}
+        widget={widget}
         onEdit={onEdit}
         onArchive={onArchive}
       />
@@ -34,11 +29,11 @@ const WidgetRenderer = ({
   return (
     <div className="widget-container">
       <div className="widget-title">
-        {registryItem.icon && <registryItem.icon size={18} style={{ color: "#3b82f6" }} />}
-        <span>{registryItem.title}</span>
+        {IconComponent && <IconComponent size={18} style={{ color: "#3b82f6" }} />}
+        <span>{widget.title}</span>
       </div>
-      <WidgetComponent
-        props={widget.props}
+      <UniversalFormWidget
+        widget={widget}
         onSave={onSave}
         onCancel={widget.dataId ? onCancelEdit : null}
       />

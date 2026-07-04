@@ -71,7 +71,7 @@ body {
 /* App Shell Layout */
 .app-container {
   display: grid;
-  grid-template-columns: 460px 1fr;
+  grid-template-columns: 400px 1fr;
   height: 100vh;
   width: 100vw;
   background-color: var(--bg-primary);

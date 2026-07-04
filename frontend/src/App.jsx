@@ -7,10 +7,10 @@ function App() {
   return (
     <ProjectProvider>
       <div className="app-container">
-        {/* Left Side: Persistent Project Dashboard */}
+        {/* Left Panel: Persistent Workspace Directory */}
         <Workspace />
 
-        {/* Right Side: Gemini AI Interactive Conversation */}
+        {/* Right Panel: AI Conversational Workspace */}
         <Chat />
       </div>
     </ProjectProvider>

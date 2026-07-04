@@ -1,6 +1,6 @@
 import React from "react";
 import { useProject } from "../context/ProjectContext";
-import { WidgetRegistry } from "../widgets/WidgetRegistry";
+import { getActionConfig } from "../widgets/WidgetRegistry";
 import WidgetRenderer from "./WidgetRenderer";
 
 const MessageBubble = ({ message }) => {
@@ -13,23 +13,29 @@ const MessageBubble = ({ message }) => {
   const isUser = message.role === "user";
   const { widget } = message;
 
-  // 1. Handle Saving a Widget
-  const handleSave = async (formData) => {
-    if (!widget || !widget.type) return;
+  // 1. Handle Saving dynamic form widget
+  const handleSave = async (formData, buttonAction) => {
+    if (!widget) return;
     
-    const config = WidgetRegistry[widget.type];
-    if (!config) return;
+    const config = getActionConfig(buttonAction);
+    const category = config.category;
 
     try {
-      // Save item to workspace collection (POST/PUT)
-      const savedItem = await saveWorkspaceItem(config.category, formData);
+      // If we are editing, append the existing ID to perform a PUT update
+      const payload = { ...formData };
+      if (widget.dataId) {
+        payload.id = widget.dataId;
+      }
+      
+      // Save item to MongoDB workspace collections
+      const savedItem = await saveWorkspaceItem(category, payload);
       
       // Update chat message widget state to 'saved'
       await updateChatMessageWidget(message.id, {
-        type: widget.type,
-        props: savedItem, // Storing single source of truth
+        ...widget,
         status: "saved",
-        dataId: savedItem.id
+        dataId: savedItem.id,
+        submittedData: savedItem // Single Source of Truth
       });
     } catch (err) {
       alert("Error saving item: " + err.message);
@@ -47,7 +53,7 @@ const MessageBubble = ({ message }) => {
 
   // 3. Handle Archiving Message Card (UI only)
   const handleArchive = async () => {
-    if (window.confirm("Archive this card? It will remove it from the chat but won't delete the workspace item.")) {
+    if (window.confirm("Archive this card? It will remove it from the chat feed, but won't delete the persistent database record.")) {
       await archiveChatMessage(message.id);
     }
   };
@@ -64,17 +70,16 @@ const MessageBubble = ({ message }) => {
   return (
     <div className={`message-row ${isUser ? "user" : "model"}`}>
       <div className="message-bubble">
-        {/* Render text response if present */}
+        {/* Render conversational text response if present */}
         {message.text && (
           <div className="ai-text">
             {message.text}
           </div>
         )}
 
-        {/* Render interactive widget or summary card if present */}
-        {widget && widget.type && (
+        {/* Render dynamic form widget or summary card if present */}
+        {widget && widget.type === "form" && (
           <WidgetRenderer
-            messageId={message.id}
             widget={widget}
             onSave={handleSave}
             onEdit={handleEdit}
