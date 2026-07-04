@@ -176,7 +176,7 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
         for attempt in range(max_retries):
             try:
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model='gemini-2.0-flash',
                     contents=f"User Prompt: {prompt}",
                     config=genai.types.GenerateContentConfig(
                         system_instruction=system_instruction,
