@@ -83,3 +83,4 @@ class ChatMessage(ProjectBaseModel):
 # Chat Request Model
 class ChatRequest(BaseModel):
     message: str
+    conversationId: Optional[str] = None

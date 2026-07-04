@@ -22,6 +22,10 @@ export const ProjectProvider = ({ children }) => {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleConfigured, setGoogleConfigured] = useState(false);
 
+  // ChatGPT-style Conversations States
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
+
   // Map category keywords to states and setter functions
   const stateMap = {
     workers: { state: workers, setter: setWorkers },
@@ -34,28 +38,43 @@ export const ProjectProvider = ({ children }) => {
     notifications: { state: notifications, setter: setNotifications },
   };
 
-  // 1. Fetch entire workspace and chat history on load
-  const fetchWorkspaceData = async () => {
+  // 1. Fetch conversations list
+  const fetchConversationsList = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/workspace`);
+      const res = await axios.get(`${API_BASE}/conversations`);
+      setConversations(res.data || []);
+      return res.data || [];
+    } catch (err) {
+      console.error("Error fetching conversations list:", err);
+      return [];
+    }
+  };
+
+  // 2. Fetch workspace items filtered by conversationId
+  const fetchWorkspaceData = async (conversationId) => {
+    if (!conversationId) return;
+    try {
+      const res = await axios.get(`${API_BASE}/workspace?conversationId=${conversationId}`);
       const data = res.data;
-      if (data.workers) setWorkers(data.workers);
-      if (data.budgets) setBudgets(data.budgets);
-      if (data.inventory) setInventory(data.inventory);
-      if (data.todos) setTodos(data.todos);
-      if (data.schedules) setSchedules(data.schedules);
-      if (data.meetings) setMeetings(data.meetings);
-      if (data.emails) setEmails(data.emails);
-      if (data.notifications) setNotifications(data.notifications);
+      setWorkers(data.workers || []);
+      setBudgets(data.budgets || []);
+      setInventory(data.inventory || []);
+      setTodos(data.todos || []);
+      setSchedules(data.schedules || []);
+      setMeetings(data.meetings || []);
+      setEmails(data.emails || []);
+      setNotifications(data.notifications || []);
     } catch (err) {
       console.error("Error fetching workspace data:", err);
     }
   };
 
-  const fetchChatHistory = async () => {
+  // 3. Fetch chat history filtered by conversationId
+  const fetchChatHistory = async (conversationId) => {
+    if (!conversationId) return;
     try {
-      const res = await axios.get(`${API_BASE}/chat/history`);
-      setChatHistory(res.data);
+      const res = await axios.get(`${API_BASE}/chat/history?conversationId=${conversationId}`);
+      setChatHistory(res.data || []);
     } catch (err) {
       console.error("Error fetching chat history:", err);
     }
@@ -71,16 +90,28 @@ export const ProjectProvider = ({ children }) => {
     }
   };
 
+  // Bootstrap Conversations & Select active conversation on mount
+  const bootstrapConversations = async () => {
+    const list = await fetchConversationsList();
+    if (list.length > 0) {
+      const firstConv = list[0];
+      setActiveConversationId(firstConv.id);
+      await fetchWorkspaceData(firstConv.id);
+      await fetchChatHistory(firstConv.id);
+    } else {
+      // Create default conversation if list is empty
+      await createConversation();
+    }
+  };
+
   useEffect(() => {
-    fetchWorkspaceData();
-    fetchChatHistory();
+    bootstrapConversations();
     checkGoogleAuthStatus();
 
-    // Check if redirect contains authentication status parameter
+    // Check redirect authentication codes
     const params = new URLSearchParams(window.location.search);
     if (params.get("auth") === "success") {
       alert("Successfully connected your Google Workspace Account!");
-      // Clean query params
       window.history.replaceState({}, document.title, window.location.pathname);
       checkGoogleAuthStatus();
     } else if (params.get("auth") === "error") {
@@ -89,7 +120,71 @@ export const ProjectProvider = ({ children }) => {
     }
   }, []);
 
-  // Redirect user to Google OAuth Concent Prompt
+  // --- Conversations Handlers ---
+
+  const createConversation = async () => {
+    try {
+      const res = await axios.post(`${API_BASE}/conversations`);
+      const newConv = res.data;
+      setConversations(prev => [newConv, ...prev]);
+      setActiveConversationId(newConv.id);
+      
+      // Clear current workspace and chat state locally immediately
+      setWorkers([]);
+      setBudgets([]);
+      setInventory([]);
+      setTodos([]);
+      setSchedules([]);
+      setMeetings([]);
+      setEmails([]);
+      setNotifications([]);
+      setChatHistory([]);
+      
+      return newConv;
+    } catch (err) {
+      console.error("Error creating new conversation session:", err);
+    }
+  };
+
+  const selectConversation = async (conversationId) => {
+    setActiveConversationId(conversationId);
+    await fetchWorkspaceData(conversationId);
+    await fetchChatHistory(conversationId);
+  };
+
+  const renameConversation = async (conversationId, title) => {
+    try {
+      const res = await axios.put(`${API_BASE}/conversations/${conversationId}`, { title });
+      const updatedConv = res.data;
+      setConversations(prev => prev.map(c => c.id === conversationId ? updatedConv : c));
+    } catch (err) {
+      console.error("Error renaming conversation session:", err);
+    }
+  };
+
+  const deleteConversation = async (conversationId) => {
+    try {
+      await axios.delete(`${API_BASE}/conversations/${conversationId}`);
+      
+      const remaining = conversations.filter(c => c.id !== conversationId);
+      setConversations(remaining);
+      
+      // If the active conversation was deleted, select another one or create a new one
+      if (activeConversationId === conversationId) {
+        if (remaining.length > 0) {
+          const nextActive = remaining[0];
+          setActiveConversationId(nextActive.id);
+          await fetchWorkspaceData(nextActive.id);
+          await fetchChatHistory(nextActive.id);
+        } else {
+          await createConversation();
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting conversation session:", err);
+    }
+  };
+
   const connectGoogle = async () => {
     try {
       const res = await axios.get(`${API_BASE}/auth/url`);
@@ -107,9 +202,15 @@ export const ProjectProvider = ({ children }) => {
       const endpoint = `${API_BASE}/${category}`;
       let response;
       
+      const payload = { ...item };
+      // Scopes the item to the active conversation during creation
+      if (!payload.id && activeConversationId) {
+        payload.conversationId = activeConversationId;
+      }
+
       if (item.id) {
         // Edit flow
-        response = await axios.put(`${endpoint}/${item.id}`, item);
+        response = await axios.put(`${endpoint}/${item.id}`, payload);
         const updatedItem = response.data;
         const { setter } = stateMap[category];
         setter(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
@@ -131,7 +232,7 @@ export const ProjectProvider = ({ children }) => {
         return updatedItem;
       } else {
         // Create flow
-        response = await axios.post(endpoint, item);
+        response = await axios.post(endpoint, payload);
         const createdItem = response.data;
         const { setter } = stateMap[category];
         setter(prev => [...prev, createdItem]);
@@ -169,7 +270,7 @@ export const ProjectProvider = ({ children }) => {
 
   // 4. Send Message to Chat
   const sendChatMessage = async (text) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !activeConversationId) return;
     
     // Add user message to state immediately for immediate UX response
     const tempUserMsg = { id: "temp-user", role: "user", text, widget: null };
@@ -177,7 +278,10 @@ export const ProjectProvider = ({ children }) => {
     setIsChatLoading(true);
 
     try {
-      const response = await axios.post(`${API_BASE}/chat`, { message: text });
+      const response = await axios.post(`${API_BASE}/chat`, { 
+        message: text,
+        conversationId: activeConversationId
+      });
       const aiMessage = response.data;
       
       // Append AI message and sync user message
@@ -186,9 +290,9 @@ export const ProjectProvider = ({ children }) => {
         return [...filtered, { id: "temp-user-sync", role: "user", text }, aiMessage];
       });
       
-      // Synchronize dashboard items if workspace state was modified by Gemini actions
-      await fetchWorkspaceData();
-      await fetchChatHistory();
+      // Sync list to pick up auto-generated title or updatedAt timestamps
+      await fetchConversationsList();
+      await fetchWorkspaceData(activeConversationId);
     } catch (err) {
       console.error("Error sending chat message:", err);
     } finally {
@@ -223,8 +327,9 @@ export const ProjectProvider = ({ children }) => {
 
   // 7. Clear Conversation History
   const clearChatHistory = async () => {
+    if (!activeConversationId) return;
     try {
-      await axios.delete(`${API_BASE}/chat/clear`);
+      await axios.delete(`${API_BASE}/chat/clear?conversationId=${activeConversationId}`);
       setChatHistory([]);
     } catch (err) {
       console.error("Error clearing chat history:", err);
@@ -246,6 +351,12 @@ export const ProjectProvider = ({ children }) => {
         isChatLoading,
         googleConnected,
         googleConfigured,
+        conversations,
+        activeConversationId,
+        createConversation,
+        selectConversation,
+        renameConversation,
+        deleteConversation,
         connectGoogle,
         saveWorkspaceItem,
         deleteWorkspaceItem,
@@ -253,7 +364,7 @@ export const ProjectProvider = ({ children }) => {
         updateChatMessageWidget,
         archiveChatMessage,
         clearChatHistory,
-        refreshWorkspace: fetchWorkspaceData,
+        refreshWorkspace: () => fetchWorkspaceData(activeConversationId),
       }}
     >
       {children}

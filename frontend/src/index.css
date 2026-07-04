@@ -71,7 +71,7 @@ body {
 /* App Shell Layout */
 .app-container {
   display: grid;
-  grid-template-columns: 400px 1fr;
+  grid-template-columns: auto 400px 1fr;
   height: 100vh;
   width: 100vw;
   background-color: var(--bg-primary);
@@ -691,3 +691,321 @@ body {
   color: white;
   font-weight: bold;
 }
+
+/* LEFT SIDEBAR: Collapsible Conversation History (ChatGPT-style) */
+.sidebar-panel {
+  width: 260px;
+  background-color: #0f172a; /* Slate 900 (premium dark sidebar) */
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 100;
+}
+
+.sidebar-panel.collapsed {
+  width: 60px;
+}
+
+.sidebar-header {
+  height: 70px;
+  padding: 0 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #f8fafc; /* Slate 50 */
+}
+
+.collapse-toggle {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.collapse-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+}
+
+.sidebar-action-container {
+  padding: 16px;
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.new-chat-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: #3b82f6;
+}
+
+.new-chat-icon-btn {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.new-chat-icon-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: #3b82f6;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+/* Grouping lists */
+.conversation-group {
+  margin-bottom: 20px;
+}
+
+.group-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #64748b; /* Slate 500 */
+  padding: 0 16px;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.conversation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #cbd5e1; /* Slate 300 */
+}
+
+.conversation-item:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  color: #f8fafc;
+}
+
+.conversation-item.active {
+  background-color: rgba(59, 130, 246, 0.12);
+  color: #f8fafc;
+}
+
+.conversation-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-icon {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.conversation-item.active .chat-icon {
+  color: #3b82f6;
+}
+
+.conversation-text-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.conversation-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversation-last-msg {
+  font-size: 0.7rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.conversation-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.conversation-time {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.conversation-item:hover .conversation-time {
+  display: none; /* Hide time to show edit/delete buttons on hover */
+}
+
+.action-buttons {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.conversation-item:hover .action-buttons {
+  display: flex;
+}
+
+.action-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.action-btn:hover {
+  color: #f8fafc;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.action-btn.delete:hover {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Title Editing Input */
+.edit-title-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+  color: #f8fafc;
+  outline: none;
+}
+
+.conversation-edit-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn.check {
+  color: #10b981;
+}
+
+.control-btn.check:hover {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.control-btn.cancel {
+  color: #ef4444;
+}
+
+.control-btn.cancel:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Collapsed Sidebar Items */
+.collapsed-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.collapsed-item {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.collapsed-item:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+}
+
+.collapsed-item.active {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+

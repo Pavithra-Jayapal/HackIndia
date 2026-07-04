@@ -224,33 +224,142 @@ async def create_meeting_item(payload: dict = Body(...)):
     created = await db["meetings"].find_one({"_id": result.inserted_id})
     return serialize_doc(created)
 
+# --- Google Conversations API & Title Generation ---
+
+async def auto_generate_title(first_message: str) -> str:
+    """Generates a short 2-4 word title using gemini-flash-latest based on the user's first prompt."""
+    try:
+        from google import genai
+        api_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+        if api_key:
+            client = genai.Client(api_key=api_key)
+            prompt = (
+                "Generate a short, concise, professional 2 to 4 word title for a construction workspace conversation "
+                f"that starts with this message: '{first_message}'. "
+                "Respond ONLY with the plain title text (e.g. 'Villa Construction' or 'Office Renovation'). "
+                "Do NOT include any quotation marks, markdown formatting, or preamble."
+            )
+            response = client.models.generate_content(
+                model='gemini-flash-latest',
+                contents=prompt
+            )
+            title = response.text.strip().replace('"', '').replace("'", "")
+            if title:
+                return title
+    except Exception as e:
+        print(f"Error auto-generating conversation title: {e}")
+    
+    # Fallback to first few words
+    words = first_message.split()
+    return " ".join(words[:3]) + "..." if len(words) > 3 else first_message
+
+@app.get("/api/conversations")
+async def get_conversations():
+    """Retrieves all conversation sessions, sorted by last updated time descending."""
+    docs = await db["conversations"].find().sort("updatedAt", -1).to_list(1000)
+    return serialize_list(docs)
+
+@app.post("/api/conversations")
+async def create_conversation():
+    """Creates a new conversation session document."""
+    conv_doc = {
+        "title": "New Chat",
+        "lastMessage": "",
+        "createdAt": time.time(),
+        "updatedAt": time.time(),
+    }
+    result = await db["conversations"].insert_one(conv_doc)
+    created = await db["conversations"].find_one({"_id": result.inserted_id})
+    return serialize_doc(created)
+
+@app.put("/api/conversations/{conversation_id}")
+async def rename_conversation(conversation_id: str, payload: dict = Body(...)):
+    """Renames a conversation session title."""
+    title = payload.get("title", "New Chat")
+    result = await db["conversations"].update_one(
+        {"_id": ObjectId(conversation_id)},
+        {"$set": {"title": title, "updatedAt": time.time()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    updated = await db["conversations"].find_one({"_id": ObjectId(conversation_id)})
+    return serialize_doc(updated)
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Cascade deletes a conversation and all its history and workspace records."""
+    if not is_valid_object_id(conversation_id):
+        raise HTTPException(status_code=400, detail="Invalid conversation_id format")
+
+    # 1. Delete conversation doc
+    result = await db["conversations"].delete_one({"_id": ObjectId(conversation_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+        
+    # 2. Delete associated messages
+    await db["chat_history"].delete_many({"conversationId": conversation_id})
+    
+    # 3. Delete associated workspace items
+    for key, coll_name in COLLECTIONS.items():
+        await db[coll_name].delete_many({"conversationId": conversation_id})
+        
+    return {"success": True, "deleted_id": conversation_id}
+
 # --- Workspace Entire Dashboard route ---
 
 @app.get("/api/workspace")
-async def get_entire_workspace():
-    """Fetches all workspace items in a single call to bootstrap the UI state."""
+async def get_entire_workspace(conversationId: str = None):
+    """Fetches all workspace items for the active conversation to bootstrap the UI state."""
     data = {}
     for key, coll_name in COLLECTIONS.items():
-        docs = await db[coll_name].find().to_list(1000)
+        if conversationId:
+            docs = await db[coll_name].find({"conversationId": conversationId}).to_list(1000)
+        else:
+            docs = await db[coll_name].find().to_list(1000)
         data[key] = serialize_list(docs)
     return data
 
 # --- Chat History & Interaction routes ---
 
 @app.get("/api/chat/history")
-async def get_chat_history():
-    """Retrieves list of previous chat messages."""
-    docs = await db["chat_history"].find().sort("_id", 1).to_list(1000)
+async def get_chat_history(conversationId: str = None):
+    """Retrieves list of previous chat messages filtered by conversationId."""
+    query = {}
+    if conversationId:
+        query["conversationId"] = conversationId
+    docs = await db["chat_history"].find(query).sort("_id", 1).to_list(1000)
     return serialize_list(docs)
 
 @app.post("/api/chat")
 async def send_chat_message(payload: ChatRequest):
     user_text = payload.message
+    conversation_id = payload.conversationId
     
+    if not conversation_id:
+        raise HTTPException(status_code=400, detail="Missing 'conversationId' in request.")
+
+    if not is_valid_object_id(conversation_id):
+        raise HTTPException(status_code=400, detail="Invalid conversationId format")
+        
+    # Ensure conversation exists
+    conv = await db["conversations"].find_one({"_id": ObjectId(conversation_id)})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation session not found.")
+        
+    # Auto-generate title on first message
+    is_default_title = (conv.get("title") == "New Chat" or not conv.get("title"))
+    if is_default_title:
+        new_title = await auto_generate_title(user_text)
+        await db["conversations"].update_one(
+            {"_id": ObjectId(conversation_id)},
+            {"$set": {"title": new_title}}
+        )
+        
     # 1. Save user message to database
     user_msg_doc = {
         "role": "user", 
         "text": user_text, 
+        "conversationId": conversation_id,
         "widget": None,
         "createdAt": time.time(),
         "updatedAt": time.time(),
@@ -258,13 +367,13 @@ async def send_chat_message(payload: ChatRequest):
     }
     await db["chat_history"].insert_one(user_msg_doc)
     
-    # 2. Gather full MongoDB collections context to inject into Gemini
+    # 2. Gather MongoDB collections context (FILTERED BY active conversationId!)
     context = {}
     for key, coll_name in COLLECTIONS.items():
-        docs = await db[coll_name].find().to_list(1000)
+        docs = await db[coll_name].find({"conversationId": conversation_id}).to_list(1000)
         context[key] = serialize_list(docs)
         
-    chat_docs = await db["chat_history"].find().sort("_id", 1).to_list(100)
+    chat_docs = await db["chat_history"].find({"conversationId": conversation_id}).sort("_id", 1).to_list(100)
     context["chat_history"] = serialize_list(chat_docs)
     
     # 3. Call Gemini service to analyze and generate planning response
@@ -290,6 +399,7 @@ async def send_chat_message(payload: ChatRequest):
     ai_msg_doc = {
         "role": "model",
         "text": message_text,
+        "conversationId": conversation_id,
         "widget": ai_widget,
         "createdAt": time.time(),
         "updatedAt": time.time(),
@@ -300,6 +410,15 @@ async def send_chat_message(payload: ChatRequest):
     result = await db["chat_history"].insert_one(ai_msg_doc)
     created_ai_msg = serialize_doc(ai_msg_doc)
     created_ai_msg["id"] = str(result.inserted_id)
+    
+    # 5. Update lastMessage and updatedAt in conversation session
+    await db["conversations"].update_one(
+        {"_id": ObjectId(conversation_id)},
+        {"$set": {
+            "lastMessage": user_text,
+            "updatedAt": time.time()
+        }}
+    )
     
     return created_ai_msg
 
@@ -327,18 +446,24 @@ async def delete_chat_message(message_id: str):
     return {"success": True}
 
 @app.delete("/api/chat/clear")
-async def clear_chat():
-    """Resets the chat history in the DB."""
-    await db["chat_history"].delete_many({})
+async def clear_chat(conversationId: str = None):
+    """Resets the chat history for the conversation in the DB."""
+    query = {}
+    if conversationId:
+        query["conversationId"] = conversationId
+    await db["chat_history"].delete_many(query)
     return {"success": True}
 
 # --- Generic CRUD routes for Workspace collections (Catch-all last) ---
 
 @app.get("/api/{category}")
-async def get_items(category: str):
+async def get_items(category: str, conversationId: str = None):
     if category not in COLLECTIONS:
         raise HTTPException(status_code=404, detail="Category not found")
-    docs = await db[COLLECTIONS[category]].find().to_list(1000)
+    query = {}
+    if conversationId:
+        query["conversationId"] = conversationId
+    docs = await db[COLLECTIONS[category]].find(query).to_list(1000)
     return serialize_list(docs)
 
 @app.post("/api/{category}")
@@ -388,7 +513,7 @@ async def delete_item(category: str, item_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
     
-    # CASCADE DELETE: Remove or invalidate active widgets/summaries linked to this data record in the chat history
+    # CASCADE DELETE: Remove active widgets/summaries linked to this data record in the chat history
     await db["chat_history"].delete_many({"widget.dataId": item_id})
     
     return {"success": True, "deleted_id": item_id}
