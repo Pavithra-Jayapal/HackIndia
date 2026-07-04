@@ -79,6 +79,11 @@ async def get_auth_status():
 @app.get("/api/auth/url")
 async def get_auth_url():
     """Generates Google OAuth callback url for prompt authentication."""
+    if not OAUTH_AVAILABLE:
+        raise HTTPException(
+            status_code=500,
+            detail="Google OAuth library 'google-auth-oauthlib' is missing. Please run the backend inside the venv or install it: pip install google-auth-oauthlib"
+        )
     client_id = os.getenv("GOOGLE_CLIENT_ID", "")
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "")
@@ -116,6 +121,11 @@ async def get_auth_url():
 @app.get("/api/auth/callback")
 async def auth_callback(code: str = None, error: str = None):
     """Exchanges Google authorization code for refresh tokens and updates database."""
+    if not OAUTH_AVAILABLE:
+        raise HTTPException(
+            status_code=500,
+            detail="Google OAuth library 'google-auth-oauthlib' is missing. Please run the backend inside the venv or install it: pip install google-auth-oauthlib"
+        )
     if error:
         return RedirectResponse(url="http://localhost:5173/?auth=error&detail=" + error)
     if not code:
