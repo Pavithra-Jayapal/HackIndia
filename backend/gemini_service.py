@@ -36,23 +36,23 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
 
         if context:
             if "workers" in context and context["workers"]:
-                workers_ctx = "\n".join([f"- Worker: name='{w['name']}', role='{w['role']}', phone='{w['phone']}', salary={w['salary']}, status='{w['status']}'" for w in context["workers"]])
+                workers_ctx = "\n".join([f"- Worker: name='{w.get('name', 'N/A')}', role='{w.get('role', 'N/A')}', phone='{w.get('phone', 'N/A')}', salary={w.get('salary', 0)}, status='{w.get('status', 'Active')}'" for w in context["workers"]])
             if "budgets" in context and context["budgets"]:
-                budgets_ctx = "\n".join([f"- Budget: project='{b['project']}', amount={b['amount']}, category='{b['category']}'" for b in context["budgets"]])
+                budgets_ctx = "\n".join([f"- Budget: project='{b.get('project', 'N/A')}', amount={b.get('amount', 0)}, category='{b.get('category', 'General')}'" for b in context["budgets"]])
             if "inventory" in context and context["inventory"]:
-                inventory_ctx = "\n".join([f"- Inventory: item='{i['itemName']}', qty={i['quantity']}, unit='{i['unit']}', status='{i['status']}'" for i in context["inventory"]])
+                inventory_ctx = "\n".join([f"- Inventory: item='{i.get('itemName', 'N/A')}', qty={i.get('quantity', 0)}, unit='{i.get('unit', 'pcs')}', status='{i.get('status', 'In Stock')}'" for i in context["inventory"]])
             if "meetings" in context and context["meetings"]:
-                meetings_ctx = "\n".join([f"- Meeting: title='{m['title']}', date='{m['date']}', time='{m['time']}', agenda='{m['agenda']}'" for m in context["meetings"]])
+                meetings_ctx = "\n".join([f"- Meeting: title='{m.get('title', 'N/A')}', date='{m.get('date', 'N/A')}', time='{m.get('time', 'N/A')}', agenda='{m.get('agenda', 'N/A')}'" for m in context["meetings"]])
             if "emails" in context and context["emails"]:
-                emails_ctx = "\n".join([f"- Email: to='{e['to']}', subject='{e['subject']}'" for e in context["emails"]])
+                emails_ctx = "\n".join([f"- Email: to='{e.get('to', 'N/A')}', subject='{e.get('subject', 'No Subject')}'" for e in context["emails"]])
             if "todos" in context and context["todos"]:
-                todos_ctx = "\n".join([f"- Task: task='{t['task']}', dueDate='{t['dueDate']}', assignedTo='{t['assignedTo']}', status='{t['status']}'" for t in context["todos"]])
+                todos_ctx = "\n".join([f"- Task: task='{t.get('task', 'N/A')}', dueDate='{t.get('dueDate', 'N/A')}', assignedTo='{t.get('assignedTo', 'N/A')}', status='{t.get('status', 'Pending')}'" for t in context["todos"]])
             if "schedules" in context and context["schedules"]:
-                schedules_ctx = "\n".join([f"- Schedule: activity='{s['activity']}', startDate='{s['startDate']}', endDate='{s['endDate']}', assignedTeam='{s['assignedTeam']}'" for s in context["schedules"]])
+                schedules_ctx = "\n".join([f"- Schedule: activity='{s.get('activity', 'N/A')}', startDate='{s.get('startDate', 'N/A')}', endDate='{s.get('endDate', 'N/A')}', assignedTeam='{s.get('assignedTeam', 'N/A')}'" for s in context["schedules"]])
             if "notifications" in context and context["notifications"]:
-                notifications_ctx = "\n".join([f"- Alert: recipient='{n['recipient']}', title='{n['title']}', severity='{n['severity']}'" for n in context["notifications"]])
+                notifications_ctx = "\n".join([f"- Alert: recipient='{n.get('recipient', 'N/A')}', title='{n.get('title', 'N/A')}', severity='{n.get('severity', 'Info')}'" for n in context["notifications"]])
             if "chat_history" in context and context["chat_history"]:
-                chat_logs_ctx = "\n".join([f"[{msg['role'].upper()}]: {msg['text']}" for msg in context["chat_history"][-8:]])
+                chat_logs_ctx = "\n".join([f"[{msg.get('role', 'user').upper()}]: {msg.get('text', '')}" for msg in context["chat_history"][-8:]])
 
         system_instruction = (
             "You are a Senior Construction Assistant AI Reasoning Engine driving a Construction Management Workspace.\n"
