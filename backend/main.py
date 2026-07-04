@@ -1,5 +1,6 @@
 import os
 import time
+import requests
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
@@ -121,11 +122,6 @@ async def get_auth_url():
 @app.get("/api/auth/callback")
 async def auth_callback(code: str = None, error: str = None):
     """Exchanges Google authorization code for refresh tokens and updates database."""
-    if not OAUTH_AVAILABLE:
-        raise HTTPException(
-            status_code=500,
-            detail="Google OAuth library 'google-auth-oauthlib' is missing. Please run the backend inside the venv or install it: pip install google-auth-oauthlib"
-        )
     if error:
         return RedirectResponse(url="http://localhost:5173/?auth=error&detail=" + error)
     if not code:
@@ -135,32 +131,32 @@ async def auth_callback(code: str = None, error: str = None):
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "")
 
-    client_config = {
-        "web": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-        }
+    # Direct exchange to bypass Flow PKCE state session code_verifier issue
+    token_url = "https://oauth2.googleapis.com/token"
+    payload = {
+        "code": code,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"
     }
 
     try:
-        flow = Flow.from_client_config(
-            client_config,
-            scopes=SCOPES,
-            redirect_uri=redirect_uri
-        )
-        flow.fetch_token(code=code)
-        credentials = flow.credentials
+        response = requests.post(token_url, data=payload)
+        res_data = response.json()
+        
+        if "error" in res_data:
+            err_desc = res_data.get("error_description", res_data["error"])
+            return RedirectResponse(url="http://localhost:5173/?auth=error&detail=" + err_desc)
 
         token_data = {
-            "access_token": credentials.token,
-            "refresh_token": credentials.refresh_token,
-            "token_uri": credentials.token_uri,
-            "client_id": credentials.client_id,
-            "client_secret": credentials.client_secret,
-            "scopes": credentials.scopes,
-            "expiry": credentials.expiry.timestamp() if hasattr(credentials.expiry, 'timestamp') else (time.time() + 3500)
+            "access_token": res_data.get("access_token"),
+            "refresh_token": res_data.get("refresh_token"),
+            "token_uri": token_url,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scopes": res_data.get("scope", "").split(" "),
+            "expiry": time.time() + int(res_data.get("expires_in", 3599))
         }
 
         await save_google_credentials_doc(token_data)
