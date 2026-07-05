@@ -29,7 +29,25 @@ const UniversalFormWidget = ({ widget, onSave, onCancel }) => {
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <form onSubmit={(e) => handleSubmit(e, buttons[0]?.action)} className="widget-form">
         {fields.map((field) => {
-          const { name, label, type, placeholder, required, options = [] } = field;
+          let { name, label, type, placeholder, required, options = [] } = field;
+          
+          // Force worker role / working type to be a clean select dropdown containing all work types
+          if (name === "role") {
+            type = "select";
+            options = [
+              "Supervisor",
+              "Carpenter",
+              "Mason",
+              "Electrician",
+              "Plumber",
+              "Painter",
+              "Welder",
+              "Laborer",
+              "Foreman",
+              "Project Manager",
+              "Helper"
+            ];
+          }
           
           return (
             <div key={name} className="form-group">

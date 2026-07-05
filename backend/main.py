@@ -240,7 +240,7 @@ async def auto_generate_title(first_message: str) -> str:
                 "Do NOT include any quotation marks, markdown formatting, or preamble."
             )
             response = client.models.generate_content(
-                model='gemini-flash-latest',
+                model='gemini-2.5-flash',
                 contents=prompt
             )
             title = response.text.strip().replace('"', '').replace("'", "")

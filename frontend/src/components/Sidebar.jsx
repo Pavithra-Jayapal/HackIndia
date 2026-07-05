@@ -80,9 +80,7 @@ const Sidebar = () => {
 
   const handleDelete = (e, id, title) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete "${title}"? This will permanently delete its messages and workspace records.`)) {
-      deleteConversation(id);
-    }
+    deleteConversation(id);
   };
 
   const formatTime = (timestamp) => {

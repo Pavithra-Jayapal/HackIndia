@@ -13,6 +13,7 @@ const Chat = () => {
     connectGoogle
   } = useProject();
   const [input, setInput] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll to bottom of chat
@@ -39,9 +40,7 @@ const Chat = () => {
   };
 
   const handleClear = () => {
-    if (window.confirm("Are you sure you want to clear the conversation history?")) {
-      clearChatHistory();
-    }
+    setShowClearConfirm(true);
   };
 
   return (
@@ -174,6 +173,64 @@ const Chat = () => {
           </button>
         </form>
       </div>
+
+      {/* Premium Clear Chat Confirmation Dialog Modal Overlay */}
+      {showClearConfirm && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(15, 23, 42, 0.8)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: "#1E293B",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: "12px",
+            padding: "24px",
+            maxWidth: "400px",
+            width: "90%",
+            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.5)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+              <div style={{ background: "rgba(239, 68, 68, 0.15)", padding: "8px", borderRadius: "50%", color: "#EF4444" }}>
+                <Trash2 size={20} />
+              </div>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#F8FAFC" }}>Clear Chat History</h3>
+            </div>
+            <p style={{ fontSize: "0.85rem", color: "#94A3B8", lineHeight: "1.5", marginBottom: "20px" }}>
+              Are you sure you want to clear the conversation history? This will permanently delete all chat messages in this session from MongoDB.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button 
+                onClick={() => setShowClearConfirm(false)} 
+                className="btn btn-secondary"
+                style={{ padding: "8px 16px", borderRadius: "6px" }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={async () => {
+                  try {
+                    await clearChatHistory();
+                  } catch (err) {
+                    console.error("Failed to clear chat: ", err);
+                  } finally {
+                    setShowClearConfirm(false);
+                  }
+                }}
+                className="btn btn-primary"
+                style={{ padding: "8px 16px", background: "#EF4444", borderRadius: "6px" }}
+              >
+                Clear History
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

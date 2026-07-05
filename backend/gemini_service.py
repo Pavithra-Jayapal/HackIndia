@@ -74,7 +74,8 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
             "3. If a form is needed, construct a dynamic form schema tailored to the user's intent. Do NOT select from predefined widgets. Specify the fields, labels, input types, and pre-fill values from the user's prompt.\n"
             "4. Buttons action must map exactly to one of these: 'createWorker', 'createBudget', 'createTodo', 'createInventory', 'scheduleMeeting', 'sendEmail', 'sendNotification', 'createSchedule'.\n"
             "5. CRITICAL: If button action is 'scheduleMeeting', the form fields MUST be named exactly: 'title', 'date', 'time', 'attendees', and 'agenda'.\n"
-            "6. CRITICAL: If button action is 'sendEmail', the form fields MUST be named exactly: 'to', 'subject', and 'body'.\n\n"
+            "6. CRITICAL: If button action is 'sendEmail', the form fields MUST be named exactly: 'to', 'subject', and 'body'.\n"
+            "7. CRITICAL: If button action is 'createWorker', the field named 'role' MUST have type: 'select' and 'options' containing: 'Supervisor', 'Carpenter', 'Mason', 'Electrician', 'Plumber', 'Painter', 'Welder', 'Laborer', 'Foreman', 'Project Manager', 'Helper'.\n\n"
             "FORM JSON SCHEMA SPECIFICATION:\n"
             "If responseType is 'widget', you must construct the 'widget' object containing:\n"
             "- 'type': always 'form'\n"
@@ -170,15 +171,35 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
             },
             "required": ["responseType", "message", "widget"]
         }
+        from datetime import datetime
+        global REQUEST_COUNTER
+        if "REQUEST_COUNTER" not in globals():
+            globals()["REQUEST_COUNTER"] = 0
+        globals()["REQUEST_COUNTER"] += 1
+        request_count = globals()["REQUEST_COUNTER"]
+        
+        timestamp = datetime.now().isoformat()
+        prompt_len = len(prompt)
+        system_instruction_len = len(system_instruction)
+        total_prompt_size = prompt_len + system_instruction_len
+        
+        print(f"\n==================================================")
+        print(f"🚀 GEMINI API REQUEST INITIATED")
+        print(f"   Timestamp: {timestamp}")
+        print(f"   Model: gemini-2.5-flash")
+        print(f"   Prompt Size (chars): {prompt_len} (Instruction: {system_instruction_len})")
+        print(f"   Total Approx Payload Size: {total_prompt_size} chars")
+        print(f"   Global Request Count: {request_count}")
+        print(f"==================================================\n")
 
         client = genai.Client(api_key=api_key)
-        max_retries = 3
+        max_retries = 4
         base_delay = 2.0
         
         for attempt in range(max_retries):
             try:
                 response = client.models.generate_content(
-                    model='gemini-flash-latest',
+                    model='gemini-2.5-flash',
                     contents=f"User Prompt: {prompt}",
                     config=genai.types.GenerateContentConfig(
                         system_instruction=system_instruction,
@@ -194,18 +215,46 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
                     cleaned_text = re.sub(r"^```(?:json)?\n", "", cleaned_text)
                     cleaned_text = re.sub(r"\n```$", "", cleaned_text)
                     cleaned_text = cleaned_text.strip()
-                    
+                
+                print(f"\n==================================================")
+                print(f"✅ GEMINI API REQUEST SUCCESS")
+                print(f"   Timestamp: {datetime.now().isoformat()}")
+                print(f"   Global Request Count: {request_count}")
+                print(f"   Response Status: 200 OK")
+                print(f"==================================================\n")
+                
                 return json.loads(cleaned_text)
                 
             except Exception as e:
+                # Log error details before applying backoff or failing
+                timestamp_fail = datetime.now().isoformat()
+                print(f"\n==================================================")
+                print(f"❌ GEMINI API REQUEST FAILED (Attempt {attempt+1}/{max_retries})")
+                print(f"   Timestamp: {timestamp_fail}")
+                print(f"   Model: gemini-2.5-flash")
+                print(f"   Error Message: {str(e)}")
+                
+                # Extract full fields from Google API Exception if available
+                try:
+                    if hasattr(e, "response") and e.response is not None:
+                        print(f"   Response Status: {e.response.status_code}")
+                        print(f"   Response Body: {e.response.text}")
+                    elif hasattr(e, "code"):
+                        print(f"   API Error Code: {e.code}")
+                    if hasattr(e, "message"):
+                        print(f"   API Message: {e.message}")
+                except Exception as log_err:
+                    print(f"   Could not inspect exception fields: {log_err}")
+                print(f"==================================================\n")
+
                 error_str = str(e)
                 is_rate_limit = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower()
-                
-                # Detect daily limit exhaustion (which cannot recover immediately)
                 is_daily_limit = "PerDay" in error_str or "limit: 20" in error_str or "daily" in error_str.lower()
-                
-                if is_rate_limit and not is_daily_limit and attempt < max_retries - 1:
-                    sleep_time = (base_delay ** attempt) + (attempt * 0.5)
+                is_blocked = "limit: 0" in error_str
+
+                if is_rate_limit and not is_daily_limit and not is_blocked and attempt < max_retries - 1:
+                    # Exponential Backoff with Jitter
+                    sleep_time = (base_delay * (2 ** attempt)) + (attempt * 0.5)
                     delay_match = re.search(r"retry in ([\d\.]+)\s*s", error_str, re.IGNORECASE)
                     if delay_match:
                         try:
@@ -213,18 +262,58 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
                         except ValueError:
                             pass
                     
-                    # Cap sleep time to 8 seconds to prevent hanging the browser request
-                    if sleep_time > 8.0:
-                        print(f"Gemini sleep request of {sleep_time:.2f}s is too long. Failing fast.")
-                        raise e
-                        
-                    print(f"Gemini Rate Limit (429) hit. Retrying in {sleep_time:.2f} seconds... (Attempt {attempt+1}/{max_retries})")
+                    print(f"   [Backoff] Waiting {sleep_time:.2f} seconds before retrying...")
                     await asyncio.sleep(sleep_time)
                 else:
                     raise e
 
     except Exception as e:
-        print(f"Gemini API failure: {e}")
+        error_str = str(e)
+        is_429 = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower()
+        
+        # Select user-facing resolution instructions
+        if "limit: 0" in error_str:
+            resolution = (
+                "The Generative Language API is disabled/suspended for this Google Cloud project. "
+                "AI Studio will allow you to generate API keys, but Google Cloud Console blocks execution. "
+                "Resolution: Open Google Cloud Console, enable the 'Generative Language API' for this project, "
+                "or create a key under a different new project in Google AI Studio."
+            )
+        elif "PerDay" in error_str or "limit: 20" in error_str or "daily" in error_str.lower():
+            resolution = (
+                "You have exceeded the request quota for this key in Google AI Studio. "
+                "Resolution: Replace GEMINI_API_KEY in backend/.env with a paid-tier key, "
+                "or wait for the quota to reset."
+            )
+        else:
+            resolution = (
+                "Verify your GEMINI_API_KEY in backend/.env is valid, has billing configured "
+                "if using a paid tier, or create a fresh API key in Google AI Studio under a different project."
+            )
+
+        if is_429:
+            return {
+                "responseType": "widget",
+                "message": "The Gemini reasoning engine has hit its free-tier API rate limits. Please check your developer billing options or try again later.",
+                "widget": {
+                    "type": "form",
+                    "title": "API Quota Exhausted (429)",
+                    "fields": [],
+                    "buttons": [
+                        {
+                            "label": "View AI Studio Limits",
+                            "action": "sendNotification",
+                            "style": "secondary"
+                        }
+                    ],
+                    "status": "saved",
+                    "submittedData": {
+                        "errorType": "Rate Limit / Quota Exhausted",
+                        "details": error_str,
+                        "resolution": resolution
+                    }
+                }
+            }
         return {
             "responseType": "text",
             "message": f"Sorry, I encountered an internal error with the Gemini Reasoning Engine: {str(e)}."

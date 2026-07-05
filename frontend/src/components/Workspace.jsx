@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { useProject } from "../context/ProjectContext";
-import { 
-  User, 
-  DollarSign, 
-  Mail, 
-  CheckSquare, 
-  Bell, 
-  Calendar, 
-  Clock, 
-  Package, 
+import {
+  User,
+  DollarSign,
+  Mail,
+  CheckSquare,
+  Bell,
+  Calendar,
+  Clock,
+  Package,
   Trash2,
   HardHat
 } from "lucide-react";
@@ -16,6 +16,7 @@ import {
 const Workspace = () => {
   const project = useProject();
   const [activeTab, setActiveTab] = useState("workers");
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
 
   // Tabs metadata mapping collections
   const tabs = [
@@ -32,15 +33,8 @@ const Workspace = () => {
   const currentTab = tabs.find(t => t.id === activeTab);
 
   // Delete Action with Confirmation
-  const handleDelete = async (category, itemId, itemTitle) => {
-    const message = `Are you sure you want to delete "${itemTitle}"?\n\nThis removes the record from MongoDB, removes the item from this workspace, and removes any active widgets/summary cards linked to it in the chat history.`;
-    if (window.confirm(message)) {
-      try {
-        await project.deleteWorkspaceItem(category, itemId);
-      } catch (err) {
-        alert("Failed to delete item: " + err.message);
-      }
-    }
+  const handleDelete = (category, itemId, itemTitle) => {
+    setDeleteConfirmItem({ category, itemId, itemTitle });
   };
 
   // Render specific item details
@@ -64,8 +58,8 @@ const Workspace = () => {
               <span className="meta-label">Salary (Monthly):</span>
               <span className="meta-value">₹{Number(item.salary).toLocaleString()}</span>
             </div>
-            <button 
-              onClick={() => handleDelete("workers", item.id, item.name)} 
+            <button
+              onClick={() => handleDelete("workers", item.id, item.name)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -73,7 +67,7 @@ const Workspace = () => {
             </button>
           </div>
         );
-      
+
       case "budgets":
         return (
           <div key={item.id} className="item-card">
@@ -90,8 +84,8 @@ const Workspace = () => {
                 ₹{Number(item.amount).toLocaleString()}
               </span>
             </div>
-            <button 
-              onClick={() => handleDelete("budgets", item.id, item.project)} 
+            <button
+              onClick={() => handleDelete("budgets", item.id, item.project)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -116,8 +110,8 @@ const Workspace = () => {
               <span className="meta-label">Stock Level:</span>
               <span className="meta-value">{item.quantity} {item.unit}</span>
             </div>
-            <button 
-              onClick={() => handleDelete("inventory", item.id, item.itemName)} 
+            <button
+              onClick={() => handleDelete("inventory", item.id, item.itemName)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -142,8 +136,8 @@ const Workspace = () => {
               <span className="meta-label">Due Date:</span>
               <span className="meta-value">{item.dueDate}</span>
             </div>
-            <button 
-              onClick={() => handleDelete("todos", item.id, item.task)} 
+            <button
+              onClick={() => handleDelete("todos", item.id, item.task)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -167,8 +161,8 @@ const Workspace = () => {
               <span className="meta-label">End Date:</span>
               <span className="meta-value">{item.endDate}</span>
             </div>
-            <button 
-              onClick={() => handleDelete("schedules", item.id, item.activity)} 
+            <button
+              onClick={() => handleDelete("schedules", item.id, item.activity)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -194,21 +188,21 @@ const Workspace = () => {
                 {item.agenda}
               </span>
             </div>
-            
+
             {/* Clickable links to Google Meet and Calendar */}
             <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
               {item.meetUrl && (
-                <a 
-                  href={item.meetUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={item.meetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="btn"
-                  style={{ 
-                    padding: "4px 8px", 
-                    fontSize: "0.75rem", 
-                    background: "#0f766e", 
-                    textDecoration: "none", 
-                    color: "white", 
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: "0.75rem",
+                    background: "#0f766e",
+                    textDecoration: "none",
+                    color: "white",
                     borderRadius: "4px",
                     fontWeight: 600,
                     cursor: "pointer"
@@ -220,17 +214,17 @@ const Workspace = () => {
                 </a>
               )}
               {item.calendarUrl && (
-                <a 
-                  href={item.calendarUrl} 
-                  target="_blank" 
+                <a
+                  href={item.calendarUrl}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="btn"
-                  style={{ 
-                    padding: "4px 8px", 
-                    fontSize: "0.75rem", 
-                    background: "rgba(255, 255, 255, 0.05)", 
-                    textDecoration: "none", 
-                    color: "#d1d5db", 
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: "0.75rem",
+                    background: "rgba(255, 255, 255, 0.05)",
+                    textDecoration: "none",
+                    color: "#d1d5db",
                     borderRadius: "4px",
                     border: "1px solid rgba(255, 255, 255, 0.1)",
                     cursor: "pointer"
@@ -243,8 +237,8 @@ const Workspace = () => {
               )}
             </div>
 
-            <button 
-              onClick={() => handleDelete("meetings", item.id, item.title)} 
+            <button
+              onClick={() => handleDelete("meetings", item.id, item.title)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem", marginTop: "8px" }}
             >
@@ -252,7 +246,7 @@ const Workspace = () => {
             </button>
           </div>
         );
- 
+
       case "emails":
         return (
           <div key={item.id} className="item-card">
@@ -272,8 +266,8 @@ const Workspace = () => {
                 Status: Sent (ID: {item.gmailMessageId})
               </span>
             )}
-            <button 
-              onClick={() => handleDelete("emails", item.id, item.subject)} 
+            <button
+              onClick={() => handleDelete("emails", item.id, item.subject)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem", marginTop: "8px" }}
             >
@@ -295,8 +289,8 @@ const Workspace = () => {
               </span>
             </div>
             <p style={{ fontSize: "0.8rem", color: "#9ca3af" }}>{item.message}</p>
-            <button 
-              onClick={() => handleDelete("notifications", item.id, item.title)} 
+            <button
+              onClick={() => handleDelete("notifications", item.id, item.title)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -318,7 +312,7 @@ const Workspace = () => {
           <HardHat size={22} style={{ color: "#10b981" }} />
           <span>Project Workspace</span>
         </div>
-        <p className="workspace-subtitle">Persistent MongoDB Storage</p>
+        <p className="workspace-subtitle">statefull -  continue where u left.....</p>
       </div>
 
       {/* Navigation Tabs */}
@@ -335,11 +329,11 @@ const Workspace = () => {
               <IconComponent size={14} />
               <span>{tab.label}</span>
               {count > 0 && (
-                <span style={{ 
+                <span style={{
                   background: activeTab === tab.id ? "rgba(59, 130, 246, 0.2)" : "rgba(255, 255, 255, 0.05)",
                   color: activeTab === tab.id ? "#3b82f6" : "#9ca3af",
-                  fontSize: "0.7rem", 
-                  padding: "1px 5px", 
+                  fontSize: "0.7rem",
+                  padding: "1px 5px",
                   borderRadius: "9999px",
                   fontWeight: 600
                 }}>
@@ -375,6 +369,64 @@ const Workspace = () => {
           )}
         </div>
       </div>
+
+      {/* Premium Confirmation Dialog Modal Overlay */}
+      {deleteConfirmItem && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(15, 23, 42, 0.8)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: "#1E293B",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: "12px",
+            padding: "24px",
+            maxWidth: "400px",
+            width: "90%",
+            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.5)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+              <div style={{ background: "rgba(239, 68, 68, 0.15)", padding: "8px", borderRadius: "50%", color: "#EF4444" }}>
+                <Trash2 size={20} />
+              </div>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#F8FAFC" }}>Confirm Deletion</h3>
+            </div>
+            <p style={{ fontSize: "0.85rem", color: "#94A3B8", lineHeight: "1.5", marginBottom: "20px" }}>
+              Are you sure you want to delete <strong>{deleteConfirmItem.itemTitle}</strong>? This action cannot be undone and will permanently remove the record from MongoDB.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                onClick={() => setDeleteConfirmItem(null)}
+                className="btn btn-secondary"
+                style={{ padding: "8px 16px", borderRadius: "6px" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await project.deleteWorkspaceItem(deleteConfirmItem.category, deleteConfirmItem.itemId);
+                  } catch (err) {
+                    alert("Failed to delete item: " + err.message);
+                  } finally {
+                    setDeleteConfirmItem(null);
+                  }
+                }}
+                className="btn btn-primary"
+                style={{ padding: "8px 16px", background: "#EF4444", borderRadius: "6px" }}
+              >
+                Delete Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

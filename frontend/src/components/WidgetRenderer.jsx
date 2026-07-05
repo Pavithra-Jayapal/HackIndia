@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { getActionConfig } from "../widgets/WidgetRegistry";
 import UniversalFormWidget from "../widgets/UniversalFormWidget";
 import SummaryCard from "./SummaryCard";
@@ -16,10 +17,22 @@ const WidgetRenderer = ({
   const config = getActionConfig(primaryAction);
   const IconComponent = config.icon;
 
+  // Spring animation settings
+  const containerVariants = {
+    hidden: { opacity: 0, y: 12, scale: 0.98 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: { type: "spring", stiffness: 350, damping: 25 }
+    }
+  };
+
   if (widget.status === "saved") {
     return (
       <SummaryCard
         widget={widget}
+        action={primaryAction}
         onEdit={onEdit}
         onArchive={onArchive}
       />
@@ -27,9 +40,14 @@ const WidgetRenderer = ({
   }
 
   return (
-    <div className="widget-container">
+    <motion.div 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="widget-container"
+    >
       <div className="widget-title">
-        {IconComponent && <IconComponent size={18} style={{ color: "#3b82f6" }} />}
+        {IconComponent && <IconComponent size={18} style={{ color: "var(--accent-primary)" }} />}
         <span>{widget.title}</span>
       </div>
       <UniversalFormWidget
@@ -37,7 +55,7 @@ const WidgetRenderer = ({
         onSave={onSave}
         onCancel={widget.dataId ? onCancelEdit : null}
       />
-    </div>
+    </motion.div>
   );
 };
 
