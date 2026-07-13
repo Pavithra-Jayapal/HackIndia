@@ -12,10 +12,13 @@ class ProjectBaseModel(BaseModel):
 # Worker Model
 class WorkerModel(ProjectBaseModel):
     name: str
-    role: str
-    phone: str
-    salary: float
+    role: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    contactDetails: Optional[str] = None
+    salary: Optional[float] = None
     status: str = "Active"
+
 
 # Budget Model
 class BudgetModel(ProjectBaseModel):

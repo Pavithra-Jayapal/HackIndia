@@ -327,10 +327,17 @@ const SummaryCard = ({ widget, action = "createTodo", onEdit, onArchive }) => {
   // 4. Worker Card
   if (action === "createWorker" || title.toLowerCase().includes("worker")) {
     const name = submittedData.name || "N/A";
-    const role = submittedData.role || "N/A";
-    const phone = submittedData.phone || "N/A";
-    const salary = Number(submittedData.salary || 0);
+    const role = submittedData.role || submittedData.specialization || "N/A";
     const status = submittedData.status || "Active";
+    
+    // Safety check for salary to prevent NaN
+    const rawSalary = submittedData.salary;
+    const salaryVal = (rawSalary !== undefined && rawSalary !== null && rawSalary !== "") ? Number(rawSalary) : null;
+    const salaryText = (salaryVal !== null && !isNaN(salaryVal)) ? `₹${salaryVal.toLocaleString()}` : "Not Provided";
+    
+    const phone = submittedData.phone ?? "Not Provided";
+    const email = submittedData.email ?? "Not Provided";
+    const contactDetails = submittedData.contactDetails ?? "Not Provided";
 
     return (
       <motion.div 
@@ -356,14 +363,32 @@ const SummaryCard = ({ widget, action = "createTodo", onEdit, onArchive }) => {
                 {status}
               </span>
             </div>
+            
+            {/* Render Salary if it is a part of the schema or has a value */}
+            {("salary" in submittedData || submittedData.salary !== undefined) && (
+              <div className="grid-cell">
+                <span className="section-label">Monthly Salary</span>
+                <span className="grid-value">{salaryText}</span>
+              </div>
+            )}
+
             <div className="grid-cell">
-              <span className="section-label">Monthly Salary</span>
-              <span className="grid-value">₹{salary.toLocaleString()}</span>
-            </div>
-            <div className="grid-cell" style={{ gridColumn: "span 2" }}>
-              <span className="section-label">Contact Details</span>
+              <span className="section-label">Phone Number</span>
               <span className="grid-value">{phone}</span>
             </div>
+
+            <div className="grid-cell">
+              <span className="section-label">Email</span>
+              <span className="grid-value">{email}</span>
+            </div>
+
+            {/* Render Contact Details if it is a part of the schema or has a value */}
+            {("contactDetails" in submittedData || submittedData.contactDetails !== undefined) && (
+              <div className="grid-cell" style={{ gridColumn: "span 2" }}>
+                <span className="section-label">Contact Details</span>
+                <span className="grid-value">{contactDetails}</span>
+              </div>
+            )}
           </div>
         </div>
 

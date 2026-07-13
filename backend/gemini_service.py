@@ -37,7 +37,7 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
 
         if context:
             if "workers" in context and context["workers"]:
-                workers_ctx = "\n".join([f"- Worker: name='{w.get('name', 'N/A')}', role='{w.get('role', 'N/A')}', phone='{w.get('phone', 'N/A')}', salary={w.get('salary', 0)}, status='{w.get('status', 'Active')}'" for w in context["workers"]])
+                workers_ctx = "\n".join([f"- Worker: name='{w.get('name', 'N/A')}', role='{w.get('role', 'N/A')}', phone='{w.get('phone', 'N/A')}', email='{w.get('email', 'N/A')}', contactDetails='{w.get('contactDetails', 'N/A')}', salary={w.get('salary', 'N/A')}, status='{w.get('status', 'Active')}'" for w in context["workers"]])
             if "budgets" in context and context["budgets"]:
                 budgets_ctx = "\n".join([f"- Budget: project='{b.get('project', 'N/A')}', amount={b.get('amount', 0)}, category='{b.get('category', 'General')}'" for b in context["budgets"]])
             if "inventory" in context and context["inventory"]:
@@ -75,7 +75,7 @@ async def generate_response(prompt: str, context: Dict[str, Any] = None) -> Dict
             "4. Buttons action must map exactly to one of these: 'createWorker', 'createBudget', 'createTodo', 'createInventory', 'scheduleMeeting', 'sendEmail', 'sendNotification', 'createSchedule'.\n"
             "5. CRITICAL: If button action is 'scheduleMeeting', the form fields MUST be named exactly: 'title', 'date', 'time', 'attendees', and 'agenda'.\n"
             "6. CRITICAL: If button action is 'sendEmail', the form fields MUST be named exactly: 'to', 'subject', and 'body'.\n"
-            "7. CRITICAL: If button action is 'createWorker', the field named 'role' MUST have type: 'select' and 'options' containing: 'Supervisor', 'Carpenter', 'Mason', 'Electrician', 'Plumber', 'Painter', 'Welder', 'Laborer', 'Foreman', 'Project Manager', 'Helper'.\n\n"
+            "7. CRITICAL: If button action is 'createWorker', the field named 'role' MUST have type: 'select' and 'options' containing: 'Supervisor', 'Carpenter', 'Mason', 'Electrician', 'Plumber', 'Painter', 'Welder', 'Laborer', 'Foreman', 'Project Manager', 'Helper'. The other fields generated for registering/creating a worker MUST be named exactly: 'name' (Full Name), 'phone' (Phone Number), and 'email' (Email address). Optional fields like 'salary' or 'contactDetails' should not be requested in the initial registration form unless explicitly asked for by the user.\n\n"
             "FORM JSON SCHEMA SPECIFICATION:\n"
             "If responseType is 'widget', you must construct the 'widget' object containing:\n"
             "- 'type': always 'form'\n"

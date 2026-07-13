@@ -40,26 +40,53 @@ const Workspace = () => {
   // Render specific item details
   const renderItemCard = (tabId, item) => {
     switch (tabId) {
-      case "workers":
+      case "workers": {
+        const name = item.name || "N/A";
+        const role = item.role || item.specialization || "N/A";
+        const status = item.status || "Active";
+        const phone = item.phone ?? "Not Provided";
+        const email = item.email ?? "Not Provided";
+        const contactDetails = item.contactDetails ?? "Not Provided";
+
+        // Safety check for salary to prevent NaN
+        const rawSalary = item.salary;
+        const salaryVal = (rawSalary !== undefined && rawSalary !== null && rawSalary !== "") ? Number(rawSalary) : null;
+        const salaryText = (salaryVal !== null && !isNaN(salaryVal)) ? `₹${salaryVal.toLocaleString()}` : "Not Provided";
+
         return (
           <div key={item.id} className="item-card">
             <div className="item-card-header">
               <div>
-                <h4 className="item-title">{item.name}</h4>
-                <span className="item-subtitle">{item.role}</span>
+                <h4 className="item-title">{name}</h4>
+                <span className="item-subtitle">{role}</span>
               </div>
-              <span className={`tag ${item.status === "Active" ? "tag-success" : "tag-danger"}`}>
-                {item.status}
+              <span className={`tag ${status === "Active" ? "tag-success" : "tag-danger"}`}>
+                {status}
               </span>
             </div>
             <div className="item-meta-grid">
               <span className="meta-label">Phone:</span>
-              <span className="meta-value">{item.phone}</span>
-              <span className="meta-label">Salary (Monthly):</span>
-              <span className="meta-value">₹{Number(item.salary).toLocaleString()}</span>
+              <span className="meta-value">{phone}</span>
+
+              <span className="meta-label">Email:</span>
+              <span className="meta-value">{email}</span>
+
+              {("contactDetails" in item || item.contactDetails !== undefined) && (
+                <>
+                  <span className="meta-label">Contact Details:</span>
+                  <span className="meta-value">{contactDetails}</span>
+                </>
+              )}
+
+              {("salary" in item || item.salary !== undefined) && (
+                <>
+                  <span className="meta-label">Salary (Monthly):</span>
+                  <span className="meta-value">{salaryText}</span>
+                </>
+              )}
             </div>
             <button
-              onClick={() => handleDelete("workers", item.id, item.name)}
+              onClick={() => handleDelete("workers", item.id, name)}
               className="btn btn-danger"
               style={{ padding: "6px 10px", alignSelf: "flex-end", fontSize: "0.75rem" }}
             >
@@ -67,6 +94,7 @@ const Workspace = () => {
             </button>
           </div>
         );
+      }
 
       case "budgets":
         return (

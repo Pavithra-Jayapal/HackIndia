@@ -1,0 +1,1295 @@
+============================================================
+SECTION 1
+============================================================
+
+PROJECT OVERVIEW
+
+---------------------------------------------------------
+1.1 SIMPLE ENGLISH EXPLANATION
+---------------------------------------------------------
+Imagine you are a construction manager on a busy site. You need to register workers, manage budgets, track inventory, schedule sync meetings, and send email updates. Traditional ERP software is frustrating: it requires navigating complex, rigid forms and clicking through menus. This project gives you a conversational dashboard. You talk to an AI assistant in simple English (e.g., "Add a carpenter Rajesh earning 30000"), and it dynamically pops up an interactive pre-filled form directly inside the chat feed. You review it, hit save, and your dashboard updates in real-time. It also integrates with your Google Workspace, creating live Google Calendar events (with Meet links) and sending real Gmails.
+
+---------------------------------------------------------
+1.2 TECHNICAL EXPLANATION
+---------------------------------------------------------
+This application is a stateful, AI-orchestrated Construction Management Command Center. It is built as a decoupled Single Page Application using React for the frontend, FastAPI for the asynchronous backend, and MongoDB as the document database. The core innovation is its Dynamic UI Engine driven by Gemini 2.5 Flash. Rather than serving static endpoints, the backend gathers database collections (Workspace Memory) and recent chat logs (Conversation History) and injects them as raw context into the LLM system instructions. The model analyzes the user's natural language request and generates a dynamic UI schema. The React client intercepts this JSON schema at runtime, builds the HTML inputs, and synchronizes subsequent CRUD operations back to MongoDB and the chat log.
+
+---------------------------------------------------------
+1.3 INTERVIEW EXPLANATION
+---------------------------------------------------------
+"This project is a stateful, AI-driven Construction Command Center designed to solve administrative friction in construction project management. It features a React frontend, a FastAPI backend, and a MongoDB database. The core differentiator is a dynamic widget generation system powered by Gemini 2.5 Flash. The agent reads the database state and conversation logs, resolves contextual references, and returns custom form schemas. The frontend renders these schemas dynamically. When submitted, transactional REST endpoints persist the records and synchronize the chat message widget state with the database, maintaining a single source of truth. We also manage Google OAuth2 tokens inside MongoDB to execute live Gmail and Calendar dispatches."
+
+---------------------------------------------------------
+1.4 KEY PILLARS
+---------------------------------------------------------
+• What problem this project solves: Administrative overhead and data entry friction in construction management.
+• Why AI Agent: To support unstructured natural language entries, context resolution (pronouns), and automated form generation.
+• What Dynamic UI means: Interface elements (fields, validation, select options, actions) are generated as JSON schemas by Gemini at runtime and rendered dynamically by React.
+• Why this architecture: React handles virtual rendering; FastAPI handles async I/O; MongoDB handles flexible document structures.
+• Overall objective: Standardize and streamline workspace management through natural language.
+• End users: Construction managers, contractors, and site supervisors.
+• Key innovations: Dynamic Form generation, Single Source of Truth widget states, Cascading Widget updates, and database-persisted Google OAuth2 integrations.
+
+
+============================================================
+SECTION 2
+============================================================
+
+TECH STACK ANALYSIS
+
+Here we analyze every tool in the stack under: Why used, Why not another, Advantages, Disadvantages, Location, and Communication.
+
+---------------------------------------------------------
+2.1 REACT
+---------------------------------------------------------
+• Why Used: It allows us to split the interface into modular, reusable functional components (Sidebar, Workspace, Chat) and update the DOM efficiently using its virtual DOM reconciliation.
+• Why Not Another (Angular/Vue): Angular is too heavy and adds unnecessary boilerplate. Vue has a smaller ecosystem and fewer developer packages for motion-driven animations like Framer Motion.
+• Advantages: Virtual DOM rendering speed; functional hook architecture; massive component ecosystem.
+• Disadvantages: Large bundle size; requires client-side compilation; state management can get complex without clean architecture.
+• Location: Entire frontend directory (`/frontend/src`).
+• Communication: Initiates HTTP requests via Axios to FastAPI and updates states, triggering rendering updates.
+
+---------------------------------------------------------
+2.2 VITE
+---------------------------------------------------------
+• Why Used: Serves files over native ES modules, enabling near-instant developer server start and hot module replacement (HMR).
+• Why Not Webpack: Webpack is slower because it bundles all modules before starting, creating annoying delays.
+• Advantages: Sub-second compilation; simple setup; out-of-the-box JSX processing.
+• Disadvantages: Less mature ecosystem than Webpack; development uses esbuild while production uses Rollup, which can lead to environment discrepancies.
+• Location: `frontend/vite.config.js`.
+• Communication: Handles compilation of React code into production-ready assets.
+
+---------------------------------------------------------
+2.3 FASTAPI
+---------------------------------------------------------
+• Why Used: Provides high performance, asynchronous I/O, and automated request validation using Pydantic.
+• Why Not Django/Flask: Django is monolithic and relies on a SQL ORM, making it hard to connect to MongoDB. Flask is synchronous and lacks native validation.
+• Advantages: Async support; automated OpenAPI documentation (`/docs`); high throughput.
+• Disadvantages: No built-in admin panel; smaller ecosystem than Django.
+• Location: `/backend/main.py`.
+• Communication: Rest API listener on port 8000. Communicates with React via JSON, MongoDB via motor, and Gemini via genai client.
+
+---------------------------------------------------------
+2.4 PYTHON
+---------------------------------------------------------
+• Why Used: Industry standard for AI development and integrates seamlessly with the official Google GenAI SDK.
+• Why Not Node.js: Python has superior support for advanced AI and data engineering libraries.
+• Advantages: Readability; rich AI libraries; simple syntax.
+• Disadvantages: Slower execution speed compared to compiled languages; limited by the GIL for CPU-bound tasks (not an issue for I/O bound tasks).
+• Location: Whole `/backend` folder.
+• Communication: Runs the FastAPI server process and drives backend operations.
+
+---------------------------------------------------------
+2.5 MONGODB
+---------------------------------------------------------
+• Why Used: Document database matching the flexible, unstructured JSON schemas of our chat history and dynamic widgets.
+• Why Not SQL: A SQL schema is rigid and would crash if the AI returned new or customized fields.
+• Advantages: Dynamic schemas; native BSON mapping; rapid reads/writes.
+• Disadvantages: No foreign keys or cascading updates (must be handled at the application layer).
+• Location: `backend/database.py`.
+• Communication: Connects via the `motor` driver. Exposes collection handles to FastAPI routes.
+
+---------------------------------------------------------
+2.6 GEMINI API (GEMINI 2.5 FLASH)
+---------------------------------------------------------
+• Why Used: Provides reasoning, context comprehension, and structural JSON response enforcement.
+• Why Not OpenAI: Gemini 2.5 Flash is highly cost-effective, has low latency, and features robust schema enforcement parameters.
+• Advantages: Strict JSON enforcement; large context window; high speed.
+• Disadvantages: API rate limits on free tiers; requires outbound internet.
+• Location: `backend/gemini_service.py`.
+• Communication: FastAPI makes HTTPS requests to the Google Gemini API gateway.
+
+---------------------------------------------------------
+2.7 REST API
+---------------------------------------------------------
+• Why Used: Standard, stateless client-server communication using HTTP protocols.
+• Why Not GraphQL: GraphQL is over-engineered for this dashboard's CRUD endpoints.
+• Advantages: Decoupled client-server design; easy routing.
+• Location: Defined in `main.py` and called in `ProjectContext.jsx`.
+• Communication: The transport layer using HTTP requests (GET, POST, PUT, DELETE).
+
+---------------------------------------------------------
+2.8 AXIOS
+---------------------------------------------------------
+• Why Used: Promise-based HTTP requests with automatic JSON parsing and clean interceptors.
+• Why Not Fetch: Fetch requires writing boilerplate for conversion and manual error parsing.
+• Advantages: Automatic serialization; request cancelling.
+• Location: `frontend/src/context/ProjectContext.jsx`.
+• Communication: Executed within the client to send requests.
+
+---------------------------------------------------------
+2.9 CONTEXT API
+---------------------------------------------------------
+• Why Used: Global state container that coordinates data across React components without prop drilling.
+• Why Not Redux: Redux has excessive boilerplate and is unnecessary for a project of this scale.
+• Advantages: Native React solution; zero boilerplate; reactive state sharing.
+• Disadvantages: Can cause unnecessary rerenders if not optimized.
+• Location: `frontend/src/context/ProjectContext.jsx`.
+• Communication: Distributes state arrays to Sidebar, Workspace, and Chat.
+
+---------------------------------------------------------
+2.10 REACT HOOKS
+---------------------------------------------------------
+• Why Used: Enables functional components to manage local state (`useState`), side effects (`useEffect`), references (`useRef`), and global states (`useContext`).
+• Why Not Class Components: Class components are deprecated and highly verbose.
+• Advantages: Clean code; code reuse; unified lifecycle management.
+• Location: Used in all frontend components.
+• Communication: React updates state variables, triggering visual updates.
+
+---------------------------------------------------------
+2.11 CORS
+---------------------------------------------------------
+• Why Used: Security protocol allowing the browser to allow port 5173 to load data from port 8000.
+• Location: Configured in `backend/main.py`.
+
+---------------------------------------------------------
+2.12 ASYNC / AWAIT
+---------------------------------------------------------
+• Why Used: Permits non-blocking I/O execution, allowing FastAPI and React to run other tasks while waiting for database queries or API responses.
+• Location: Applied throughout both frontend and backend files.
+
+---------------------------------------------------------
+2.13 JSON
+---------------------------------------------------------
+• Why Used: Lightweight data transport format parsed natively by JavaScript and Python.
+• Location: Serialization format between all endpoints.
+
+---------------------------------------------------------
+2.14 VIRTUAL DOM
+---------------------------------------------------------
+• Why Used: In-memory representation of DOM nodes that React uses to patch the actual browser DOM efficiently.
+• Location: Core React feature.
+
+---------------------------------------------------------
+2.15 COMPONENT ARCHITECTURE
+---------------------------------------------------------
+• Why Used: Modularizes code into independent blocks, making the project clean and testable.
+• Location: `frontend/src/components` and `frontend/src/widgets`.
+
+---------------------------------------------------------
+2.16 ENVIRONMENT VARIABLES
+---------------------------------------------------------
+• Why Used: Separates application configurations and secret API keys from the codebase.
+• Location: `.env` files in both directories.
+
+---------------------------------------------------------
+2.17 HTTP METHODS
+---------------------------------------------------------
+• Why Used: Standardized CRUD actions: GET (read), POST (create), PUT (update), DELETE (destroy).
+• Location: Endpoints in `backend/main.py`.
+
+
+============================================================
+SECTION 3
+============================================================
+
+COMPLETE SYSTEM ARCHITECTURE
+
+---------------------------------------------------------
+3.1 ASCII DATAFLOW DIAGRAM
+---------------------------------------------------------
+
+  [ BROWSER UI (React SPA) ]
+     │               ▲
+     │ (Axios calls) │ (State updates)
+     ▼               │
+  [ FastAPI REST API (port 8000) ]
+     │               ▲
+     │ (Async Motor) │ (Serialized BSON)
+     ▼               │
+  [ MongoDB Database ]
+     │
+     ├─► Workers, Budgets, Inventory, Todos, Schedules, Meetings, Emails, Notifications
+     │
+  [ FastAPI AI Service Engine ]
+     │ (Workspace Memory Context + System Prompts)
+     ▼
+  [ Google Gemini API (gemini-2.5-flash) ]
+     │
+     ▼ (Adheres to Response JSON Schema)
+  [ Generated Chat Message w/ Dynamic Form UI ]
+     │
+     ▼ (FastAPI serializes & returns)
+  [ React message bubble renders active UniversalFormWidget ]
+     │
+     ▼ (User fills fields and clicks Save button)
+  [ Axios POST /api/{category} ] ────► Updates MongoDB Record
+     │
+     ▼ (Resolves callback & calls updateChatMessageWidget API)
+  [ updates chat_history widget status = "saved" & references dataId ]
+     │
+     ▼ (Context broadcasts state changes)
+  [ UI rerenders: Form becomes a SummaryCard; Workspace Grid Updates ]
+
+---------------------------------------------------------
+3.2 DETAILED CONNECTIONS
+---------------------------------------------------------
+• Browser <-> React: Operates on client machine. React binds to the browser's DOM events, listening for clicks or text input changes.
+• React <-> Context API: React functional components invoke functions exposed by the context (e.g. useProject).
+• Context API <-> Axios: Functions trigger Axios promises to send serialized JSON payloads to the API base URL.
+• Axios <-> REST API (FastAPI): Network communication via HTTP protocol. CORS middleware is configured on the backend to allow requests from `http://localhost:5173`.
+• FastAPI <-> MongoDB: Communicates using the motor async client driver. All queries are non-blocking (async/await).
+• FastAPI <-> Gemini: Calls the official Google `genai` client, transmitting a payload containing the prompt, system instructions, temperature, and JSON output schema.
+• Response <-> React Rendering: Once the backend returns the JSON response, the frontend Context parses the payload, updates state, and React schedules a re-render. React uses its Virtual DOM diffing to update the changed components.
+
+
+============================================================
+SECTION 4
+============================================================
+
+COMPLETE END TO END PIPELINE
+
+Trace of prompt: "Add an electrical engineer"
+
+1. Typing: The user types "Add an electrical engineer" in the textarea of `Chat.jsx` and presses Enter.
+2. State Updates: The local state `input` is cleared. The context function `sendChatMessage(text)` is triggered. A temporary chat bubble is added to the `chatHistory` state (`id: "temp-user"`) for instant visual feedback. `isChatLoading` is set to `true`, displaying the thinking spinner.
+3. API Request: Axios issues a POST request to `http://localhost:8000/api/chat` with:
+   `{ "message": "Add an electrical engineer", "conversationId": "active-conv-id" }`
+4. FastAPI Route: `main.py` intercepts this at `@app.post("/api/chat")`. It verifies the request body and queries the active conversation.
+5. Database Reads: The backend fetches all collections (workers, budgets, inventory, etc.) and the last 8 chat messages belonging to this `conversationId` from MongoDB.
+6. Context Creation: The database documents are formatted into lists of text strings in `gemini_service.py` to compile the "Workspace Memory".
+7. Prompt Creation: The user's input, the formatted workspace lists, and the conversation logs are combined with the system prompt template.
+8. Gemini API Call: The client executes `models.generate_content` targeting model `gemini-2.5-flash` with the system prompt, setting temperature to `0.15` and specifying `response_schema` for structured JSON.
+9. System Prompt: Directs the model to act as a Construction Assistant, resolve pronouns, determine if a widget is needed, and generate custom JSON widgets with actions like `createWorker`. It specifies that if `createWorker` is selected, a field named `role` must be a select input pre-filled with options like 'Electrician'.
+10. Response Schema: Enforces that Gemini must return a JSON object containing: `responseType` ("text" or "widget"), `message` (chat response text), and a `widget` object (holding form title, fields, buttons).
+11. JSON Generation & Response Validation: Gemini returns a JSON string. The backend parses it using `json.loads` to validate it conforms to the Python dictionary structure.
+12. Saving Chat: The backend saves two documents in the `chat_history` collection: the user's message, and the model's message containing the generated JSON widget. The conversation session is updated with `lastMessage` and `updatedAt`.
+13. Returning Response: The backend returns the serialized AI message.
+14. React State Update: The frontend context intercepts the response, replaces the temporary message with the synced user message and the new AI message, updates the active workspace collections, and sets `isChatLoading` to `false`.
+15. Rendering Widget: The chat pane rerenders. The AI message bubble contains a widget of type `form`. It passes it to `WidgetRenderer.jsx`, which maps it to `UniversalFormWidget.jsx`.
+16. Virtual DOM: React creates virtual representations of the form fields: name (blank text), role (select dropdown with "Electrician" selected), salary (number), phone (tel), and status ("Active").
+17. Actual DOM: React diffs and applies updates to the browser screen.
+18. Final UI: The user is presented with a form titled "Worker Registration" pre-filled with the role "Electrician" and a "Save Profile" button.
+19. Timing: Database operations take ~10-50ms. Gemini API takes ~1.5-3 seconds. Frontend reconciliation takes <10ms. Total end-to-end response time is around 2-3 seconds.
+
+
+============================================================
+SECTION 5
+============================================================
+
+FRONTEND ARCHITECTURE
+
+Here we go folder by folder, file by file.
+
+---------------------------------------------------------
+5.1 FILE DIRECTORY AND FILE ANALYSIS
+---------------------------------------------------------
+
+• `main.jsx`
+  - Purpose: React application entry point.
+  - Inputs: Imports React, `ReactDOM`, `App.jsx`, and `index.css`.
+  - Outputs: Mounts the React application component tree onto the HTML DOM container (`id="root"`).
+  - Functions: Calls `createRoot().render()`.
+  - Dependencies: React, ReactDOM.
+  - Communication: Binds React execution to the browser lifecycle.
+
+• `App.jsx`
+  - Purpose: Sets up the main layout and state boundary.
+  - Inputs: Imports `ProjectProvider`, `Sidebar`, `Workspace`, and `Chat`.
+  - Outputs: Returns the CSS Grid layout with the sidebar, workspace, and chat panels.
+  - Hooks Used: None.
+  - Dependencies: React, custom components, App.css.
+  - Communication: Wraps the children in `ProjectProvider`, allowing them to access the global state context.
+
+• `context/ProjectContext.jsx`
+  - Purpose: Global state manager. Holds all state arrays and executes backend REST API calls.
+  - Inputs: API base URL (`http://localhost:8000/api`), imports Axios and React state/hook utilities.
+  - Outputs: Context values including workspace states (workers, budgets, etc.), chat state, loading state, and helper handlers.
+  - Hooks Used: `useState`, `useEffect`, `useContext`.
+  - Functions:
+    - `fetchConversationsList()`: GETs conversation sessions.
+    - `fetchWorkspaceData(id)`: GETs all collection tables for the current conversation.
+    - `fetchChatHistory(id)`: GETs chat logs.
+    - `saveWorkspaceItem(category, item)`: POSTs or PUTs records.
+    - `deleteWorkspaceItem(category, id)`: DELETEs records.
+    - `sendChatMessage(text)`: POSTs prompts to `/api/chat`.
+    - `updateChatMessageWidget(msgId, widgetData)`: PUTs widget updates to `/api/chat/message/{id}`.
+    - `archiveChatMessage(msgId)`: DELETEs message bubbles.
+    - `clearChatHistory()`: Resets logs.
+    - `connectGoogle()`: Handles Google auth.
+  - Dependencies: Axios, React.
+  - Communication: Acts as the central state transmitter of the client.
+
+• `components/Sidebar.jsx`
+  - Purpose: Conversation directory panel. Shows history lists grouped by time (Today, Yesterday, Previous) and allows sessions management.
+  - Inputs: Data from `useProject()`.
+  - Outputs: Left side pane containing action triggers (New Chat, Collapse, Rename, Delete).
+  - Hooks Used: `useState`, `useProject()`.
+  - Functions:
+    - `toggleSidebar()`: Expands or collapses sidebar.
+    - `getGroupedConversations()`: Sorts list by date.
+    - `handleStartEdit()`, `handleSaveEdit()`, `handleCancelEdit()`, `handleDelete()`.
+  - Dependencies: Lucide Icons, ProjectContext.
+  - Communication: Updates the global `activeConversationId` upon user click, which triggers Context updates.
+
+• `components/Workspace.jsx`
+  - Purpose: Visual center panel representing the database collections. Shows tabulated records.
+  - Inputs: Workspace data lists (workers, budgets, inventory, etc.) from `useProject()`.
+  - Outputs: Tabs and data registries with pagination and delete modals.
+  - Hooks Used: `useState`, `useProject()`.
+  - Functions:
+    - `handleDelete(category, itemId, itemTitle)`: Shows confirm modal.
+    - `renderItemCard(tabId, item)`: Dispatches rendering based on active tab.
+  - Dependencies: Lucide Icons, ProjectContext.
+  - Communication: Interacts with `deleteWorkspaceItem()` to remove records.
+
+• `components/Chat.jsx`
+  - Purpose: Right-hand pane displaying messages and handling inputs.
+  - Inputs: `chatHistory` from `useProject()`.
+  - Outputs: Message feed list, thinking indicator, Google auth banner, clear button, and input text area.
+  - Hooks Used: `useState`, `useRef`, `useEffect`, `useProject()`.
+  - Functions:
+    - `scrollToBottom()`: Moves feed to bottom.
+    - `handleSubmit()`: Dispatches input.
+    - `handleKeyDown()`: Triggers submit on Enter.
+  - Dependencies: Lucide Icons, MessageBubble, ProjectContext.
+  - Communication: Dispatches text prompts to `sendChatMessage()`.
+
+• `components/MessageBubble.jsx`
+  - Purpose: Render unit for single messages in the feed. Determines if conversational text or a widget should be drawn.
+  - Inputs: Single `message` object from Chat.
+  - Outputs: Text bubbles, `WidgetRenderer` wrapper elements.
+  - Hooks Used: `useProject()`.
+  - Functions:
+    - `handleSave(formData, action)`: Saves dynamic form data, marks widget as saved, sets dataId, and links submittedData.
+    - `handleEdit()`: Re-opens form widget (sets status to "active").
+    - `handleArchive()`: Hides widget from feed.
+    - `handleCancelEdit()`: Resets widget to saved.
+  - Dependencies: WidgetRenderer, ProjectContext, WidgetRegistry.
+  - Communication: Triggers state updates upon widget actions.
+
+• `components/WidgetRenderer.jsx`
+  - Purpose: Resolves widget state to render `SummaryCard` or `UniversalFormWidget`.
+  - Inputs: `widget` object.
+  - Hooks Used: None.
+  - Dependencies: Framer Motion, WidgetRegistry, SummaryCard, UniversalFormWidget.
+
+• `widgets/UniversalFormWidget.jsx`
+  - Purpose: Renders dynamic input inputs from the fields schema list.
+  - Inputs: `widget` schema, `onSave`, `onCancel`.
+  - Outputs: Form fields with local states, select dropdown options, textareas, and submit buttons.
+  - Hooks Used: `useState`.
+  - Functions:
+    - `handleChange(e)`: Updates local inputs state.
+    - `handleSubmit(e, action)`: Dispatches form values.
+  - Dependencies: React.
+
+• `widgets/WidgetRegistry.js`
+  - Purpose: Connects action identifiers (like `createWorker`) to icons, titles, and database collection targets.
+  - Outputs: Metadata records.
+
+• `components/SummaryCard.jsx`
+  - Purpose: Static presentation card for saved records.
+  - Inputs: Submitted widget parameters.
+  - Outputs: Card grids, category-colored borders, Google Meet video triggers, and Edit buttons.
+  - Hooks Used: `useState`.
+  - Functions:
+    - `handleCopyLink(link)`: Copies meeting coordinates.
+  - Dependencies: Lucide Icons, Framer Motion.
+
+
+============================================================
+SECTION 6
+============================================================
+
+BACKEND ARCHITECTURE
+
+---------------------------------------------------------
+6.1 BACKEND FILE SUMMARIES
+---------------------------------------------------------
+
+• `database.py`
+  - Purpose: Connects to MongoDB and sets up serialization.
+  - Functions:
+    - `serialize_doc(doc)`: Converts ObjectId to string `id`.
+    - `serialize_list(docs)`: Iterates list converting documents.
+  - Key Line: `client = AsyncIOMotorClient(MONGO_URI)` initializes database client asynchronously.
+
+• `models.py`
+  - Purpose: Holds Pydantic validation classes.
+  - Classes:
+    - `ProjectBaseModel`: Base class with timestamp factories (`time.time()`).
+    - `WorkerModel`, `BudgetModel`, `TodoModel`, etc.: Extends Base to validate specific fields.
+    - `WidgetState`: Validation schema for widgets (type, title, fields, buttons, dataId, submittedData).
+    - `ChatMessage`: Role, text, widget.
+    - `ChatRequest`: message, conversationId.
+
+• `gemini_service.py`
+  - Purpose: Interfaces with Gemini 2.5 Flash, formats prompts with database context, and parses JSON output.
+  - Functions:
+    - `generate_response(prompt, context)`: Compiles workspace lists, merges system instruction strings, sends prompt, handles rate limiting retries with exponential backoffs, and returns parsed JSON.
+
+• `google_service_helper.py`
+  - Purpose: Executes integration requests to Google APIs using OAuth2 credentials.
+  - Functions:
+    - `get_google_credentials_doc()`: Queries MongoDB for `oauth_token`.
+    - `save_google_credentials_doc(token)`: Updates tokens.
+    - `get_google_credentials()`: Retrieves credentials, refreshing automatically if expired.
+    - `send_gmail_email(to, subject, body)`: Sends email.
+    - `create_calendar_event(title, date, time, attendees, agenda)`: Generates events.
+
+• `main.py`
+  - Purpose: Application routing and request dispatching. Exposes API endpoints.
+  - Functions:
+    - `get_auth_status()`: Verifies token status.
+    - `get_auth_url()`: Returns consent URI.
+    - `auth_callback(code)`: Exchanges auth codes for refresh tokens, saves them, and redirects to frontend.
+    - `create_email_item(payload)`: Triggers email API and logs it.
+    - `create_meeting_item(payload)`: Triggers Calendar API and logs it.
+    - `get_entire_workspace(conversationId)`: Returns all database categories.
+    - `send_chat_message(payload)`: Entry point for prompts. Integrates database context, queries Gemini, saves messages to DB, and returns response.
+    - `@app.get("/api/{category}")` and catch-all CRUD routes: Performs database commands based on paths.
+
+---------------------------------------------------------
+6.2 ARCHITECTURAL QUESTIONS ANSWERED
+---------------------------------------------------------
+• Why async?
+  Node-style asynchronous code prevents our server process from sitting idle while waiting for external I/O (like long-running Gemini API network connections or MongoDB queries). Instead, the event loop handles other client requests.
+
+• Why FastAPI?
+  It is incredibly fast, supports asynchronous routing natively, and uses Pydantic to validate parameters and generate interactive Swagger documents automatically.
+
+• Why MongoDB driver (Motor)?
+  Motor provides an asynchronous API for MongoDB, integrating seamlessly with FastAPI's event loop.
+
+• Why ObjectId?
+  MongoDB's default primary key type. It is a 12-byte binary value, guaranteeing uniqueness across clusters.
+
+• Why serialize?
+  ObjectIds cannot be parsed by default JSON encoders. Serialization converts ObjectIds into string `id` attributes so they can be transmitted over HTTP.
+
+
+============================================================
+SECTION 7
+============================================================
+
+DATABASE DESIGN
+
+---------------------------------------------------------
+7.1 COLLECTIONS AND DOCUMENTS
+---------------------------------------------------------
+Our database `construction_workspace` uses these collections:
+
+1. `conversations`:
+   Stores chat sessions.
+   - Schema: `{ id: str, title: str, lastMessage: str, createdAt: float, updatedAt: float }`
+
+2. `chat_history`:
+   Stores message bubbles.
+   - Schema: `{ id: str, role: str, text: str, conversationId: str, widget: WidgetState | None, createdAt: float, updatedAt: float }`
+
+3. Workspace Collections:
+   All tables are scoped using `conversationId` for compartmentalization.
+   - `workers`: name, role, phone, salary, status.
+   - `budgets`: project, amount, category.
+   - `inventory`: itemName, quantity, unit, status.
+   - `todos`: task, dueDate, assignedTo, status.
+   - `schedules`: activity, startDate, endDate, assignedTeam.
+   - `meetings`: title, date, time, attendees (array), agenda, meetUrl, calendarUrl, googleEventId.
+   - `emails`: to, subject, body, status, gmailMessageId.
+   - `notifications`: recipient, title, message, severity.
+
+4. `google_tokens`:
+   Stores the single document containing OAuth refresh details.
+   - Schema: `{ type: "oauth_token", token_data: { access_token: str, refresh_token: str, expiry: float, client_id: str, ... } }`
+
+---------------------------------------------------------
+7.2 WHY NOSQL?
+---------------------------------------------------------
+• Flexible Schema: Dynamic widget forms generate unpredictable keys. Saving these datasets directly into database records is trivial with NoSQL.
+• Rapid Prototyping: No need to maintain schema migration scripts.
+• Document Structure: Alignment with JSON formats.
+
+
+============================================================
+SECTION 8
+============================================================
+
+REACT DEEP DIVE
+
+We examine how React concepts operate inside our frontend:
+
+1. `useState`:
+   Used to declare reactive state values. E.g., `formData` in `UniversalFormWidget.jsx` tracks inputs. When a user types, `setFormData` triggers, updating the input fields on screen.
+2. `useEffect`:
+   Handles side effects. Used in `App.jsx` and `ProjectContext.jsx` to fetch conversations lists and check Google OAuth configuration on component mount.
+3. `useContext`:
+   Retrieves state parameters from `ProjectContext.Provider`. Components like `Workspace.jsx` and `Sidebar.jsx` read databases states globally.
+4. `useRef`:
+   Used to reference DOM elements directly. E.g., `messagesEndRef` in `Chat.jsx` points to an empty div at the bottom of the feed. Calling `scrollIntoView()` on it moves the chat window down when messages are updated.
+5. Component Lifecycle:
+   Mounting (bootstrapping data), Updating (state mutations causing diffs), and Unmounting (cleaning up state variables).
+6. Rendering & Re-rendering:
+   React runs rendering functions whenever props or state change, constructing a new virtual DOM tree to identify layout changes.
+7. Virtual DOM, Diffing, and Reconciliation:
+   Instead of updating the slow browser DOM directly, React compares (diffs) the new virtual node list to the old tree and updates (reconciles) only the changed HTML nodes.
+8. Props:
+   Immutable parameters passed from parent to child components (e.g. `UniversalFormWidget` receives `widget` details via props).
+9. Context:
+   Global state tunnel bypassing prop drilling.
+10. Conditional Rendering:
+    Rendering elements based on condition. E.g., `widget.status === "saved"` in `WidgetRenderer.jsx` chooses `SummaryCard`, else rendering `UniversalFormWidget`.
+11. List Rendering:
+    Using `.map()` to loop arrays and render JSX elements. Essential to specify `key` attributes (like `item.id`) so React tracks elements in its Virtual DOM.
+12. Controlled Components:
+    Form inputs whose values are driven by React state (e.g. `<input value={formData.name} onChange={handleChange} />`). This guarantees React state acts as the Single Source of Truth.
+
+
+============================================================
+SECTION 9
+============================================================
+
+FASTAPI DEEP DIVE
+
+FastAPI architecture details:
+
+• App creation: Instantiated via `app = FastAPI()`. Exposes API router handles.
+• Routes and Decorators: HTTP request decorators (like `@app.get("/api/workspace")` or `@app.post("/api/chat")`) direct traffic to specialized async handlers.
+• Body parameter: `@app.post` handlers use `payload: dict = Body(...)` to capture request JSON payloads directly.
+• Pydantic and Validation: FastAPI compares incoming requests against Pydantic schemas (like `ChatRequest`). If a user passes an integer where a string is required, FastAPI returns a 422 Unprocessable Entity error automatically.
+• HTTPException: Used to raise HTTP errors (like `raise HTTPException(status_code=401, detail="Google authentication required")`).
+• Response Models: Dictate the structure of outgoing JSON payloads.
+• Async Functions: Python handlers are declared using `async def`, allowing the uvicorn event loop to run concurrently.
+
+
+============================================================
+SECTION 10
+============================================================
+
+MONGODB DEEP DIVE
+
+Database execution patterns:
+
+• Collections: Partitioned directories. We use categories (workers, budgets) mapped dynamically via variables.
+• Insert: Runs `db[collection].insert_one(payload)`. Returns the database record insertion report containing `inserted_id`.
+• Find: Runs queries like `db[collection].find(query)`. Motor cursors are converted to lists using `.to_list(1000)`.
+• Update: Runs `db[collection].update_one({"_id": ObjectId(id)}, {"$set": update_data})`. Modifies specific keys.
+• Delete: Runs `delete_one` or `delete_many` using ObjectIds.
+• ObjectId: 12-byte identifier. Must be imported from `bson` and validated before executing database queries to prevent backend exceptions.
+• Serialization: The JSON response utility must convert internal MongoDB `_id` values to string `id` variables before returning records to the frontend.
+
+
+============================================================
+SECTION 11
+============================================================
+
+GEMINI AI DEEP DIVE
+
+• Prompt Engineering & System Prompt:
+  We supply Gemini with system instructions designating it as a "Senior Construction Assistant". It is formatted with current database listings (Workspace Memory) and conversation history logs. This forces the model to evaluate natural language context.
+• Context Injection:
+  Before querying the LLM, the backend fetches collections filtered by the current conversation session and serializes them into text representations. The model is therefore aware of the exact workspace state.
+• Workspace & Conversation Memory:
+  - Workspace Memory: Real-time table states.
+  - Conversation Memory: The last 8 chat logs included in the prompt, enabling Gemini to resolve pronouns like "Rename it" or "Add another electrician".
+• Response Schema & Structured Output:
+  Using Gemini's `response_schema` API parameter, we enforce strict output structure. Gemini is constrained to return a JSON object containing a `responseType` and a `widget` containing `fields` and `buttons`.
+• Temperature:
+  Set to `0.15` to ensure output stability and minimize creative hallucinations.
+• Deciding Text vs Widget:
+  Gemini reads system instructions to decide. Simple questions ("What's the weather?") yield `responseType: 'text'`. Transactional requests ("Add Rajesh") yield `responseType: 'widget'`.
+• Filling Forms & Memory:
+  Gemini parses user text to extract entities (e.g. "Rajesh" -> name: "Rajesh"), and pre-fills them in the fields array. If a user asks to "change Rajesh's phone to 999", Gemini reads the worker lists to find Rajesh, loads his current details, and populates the form pre-filled with the new phone number.
+
+
+============================================================
+SECTION 12
+============================================================
+
+WIDGET SYSTEM
+
+• How Widgets are Generated:
+  Gemini outputs a JSON schema (title, fields, options, button actions).
+• How React decides:
+  `MessageBubble.jsx` reads `message.widget`. If present and type is `form`, it triggers `WidgetRenderer.jsx`.
+• How React renders:
+  `WidgetRenderer` checks `widget.status`. If `"active"`, it mounts `UniversalFormWidget.jsx`, which maps the `fields` array to HTML inputs. If status is `"saved"`, it maps to `SummaryCard.jsx` to render a read-only representation.
+• Dynamic Forms:
+  Inputs are rendered based on field descriptors: text (input), textarea (textarea), select (select dropdown with options), date (date selector), number (numerical input).
+• Submitted Data Storage:
+  When the user submits, the form data is POSTed to the backend CRUD endpoint (e.g. `/api/workers`). The backend returns the saved database record.
+• Status Change & Single Source of Truth:
+  Upon saving, the frontend makes a PUT request to `/api/chat/message/{id}` to update the chat message widget's state: status is changed to `"saved"`, `dataId` is set to the record's database ID, and `submittedData` is populated. This establishes the database record as the single source of truth.
+• Editing and Deleting:
+  - Edit: Clicking Edit updates the widget status back to `"active"`. React renders the form pre-filled with `submittedData`.
+  - Delete: Deleting a workspace item triggers cascading deletion: the backend removes the workspace record and cleans up chat history widgets referencing that `dataId`.
+
+
+============================================================
+SECTION 13
+============================================================
+
+CRUD FLOW (END-TO-END)
+
+1. Create:
+   - User submits `UniversalFormWidget`.
+   - Frontend calls `saveWorkspaceItem()` (POST request to `/api/{category}`).
+   - Backend inserts document into MongoDB and returns it.
+   - Frontend state updates, appending the new item, and refreshes database lists.
+2. Read:
+   - Client mounts dashboard.
+   - Context executes `fetchWorkspaceData()` (GET request to `/api/workspace`).
+   - Backend queries MongoDB and returns records.
+   - Context updates React states, triggering DOM render.
+3. Update:
+   - User updates a `SummaryCard` or workspace list item.
+   - Frontend triggers `saveWorkspaceItem()` containing the existing `id` (PUT request to `/api/{category}/{id}`).
+   - Backend updates database record in MongoDB and returns updated document.
+   - Context updates local arrays and syncs corresponding widgets in `chatHistory`.
+4. Delete:
+   - User clicks Delete on workspace row or card.
+   - Frontend calls `deleteWorkspaceItem()` (DELETE request to `/api/{category}/{id}`).
+   - Backend removes record from collection, and runs `delete_many` on `chat_history` targeting `widget.dataId: id` (Cascade delete).
+   - Frontend removes the item from state arrays, causing a clean visual removal.
+
+
+============================================================
+SECTION 14
+============================================================
+
+COMPLETE DATA FLOW DIAGRAMS
+
+---------------------------------------------------------
+14.1 SENDING MESSAGE DATAFLOW
+---------------------------------------------------------
+[User types prompt] -> [Chat.jsx input state] -> [ProjectContext.sendChatMessage(text)]
+         │
+         ▼
+[Axios POST to /api/chat] -> [main.py send_chat_message] -> [Fetch MongoDB collections]
+         │
+         ▼
+[Format context prompts] -> [Send request to Gemini API] -> [Receive structured JSON]
+         │
+         ▼
+[Insert chat history record] -> [Return model message] -> [React updates chatHistory state] -> [Rerender]
+
+---------------------------------------------------------
+14.2 WIDGET SUBMISSION / WORKER CREATION DATAFLOW
+---------------------------------------------------------
+[User fills form & clicks Save] -> [UniversalFormWidget onSubmit] -> [ProjectContext.saveWorkspaceItem]
+         │
+         ▼
+[Axios POST to /api/workers] -> [main.py create_item] -> [Insert document to workers collection]
+         │
+         ▼
+[Return serialized worker record] -> [Update workers state] -> [Call updateChatMessageWidget API]
+         │
+         ▼
+[Axios PUT /api/chat/message/{id}] -> [Update widget status="saved", dataId=worker.id] -> [Rerender]
+
+---------------------------------------------------------
+14.3 EDITING WORKER DATAFLOW
+---------------------------------------------------------
+[Click Edit on SummaryCard] -> [MessageBubble handleEdit] -> [Call updateChatMessageWidget API]
+         │
+         ▼
+[Axios PUT /api/chat/message/{id} set status="active"] -> [React updates chatHistory state] -> [Rerender]
+         │
+         ▼
+[WidgetRenderer displays UniversalFormWidget prefilled with submittedData] -> [User edits inputs and clicks Save]
+         │
+         ▼
+[Axios PUT to /api/workers/{id}] -> [Update database record] -> [Update widget status="saved"] -> [Rerender]
+
+---------------------------------------------------------
+14.4 DELETING WORKER DATAFLOW
+----------------─----------------------------------------
+[Click Delete on Workspace tab] -> [Show confirm modal] -> [ProjectContext.deleteWorkspaceItem]
+         │
+         ▼
+[Axios DELETE /api/workers/{id}] -> [main.py delete_item] -> [Delete document from workers collection]
+         │
+         ▼
+[Cascade delete: delete chat history widgets where dataId = worker.id] -> [Update states] -> [Rerender]
+
+
+============================================================
+SECTION 15
+============================================================
+
+RENDERING FLOW
+
+---------------------------------------------------------
+15.1 VIRTUAL DOM RECONCILIATION
+---------------------------------------------------------
+When a state changes (e.g. user submits form, or websocket message arrives):
+1. State Mutation: React state setter function is executed.
+2. VDOM Tree Creation: React builds a new virtual representation of the component tree.
+3. Diffing: React compares the new virtual tree against the previous virtual tree.
+4. Reconciliation: React identifies the minimal set of changes and patches the actual browser DOM (updating only changed nodes, leaving others untouched).
+
+---------------------------------------------------------
+15.2 WHY PAGE DOESN'T REFRESH
+---------------------------------------------------------
+Traditional applications refresh the page because the browser requests a new HTML document from the server. This project is a Single Page Application (SPA). The browser loads a single `index.html` file once. All subsequent transitions, form updates, and data fetches are handled in the background using JavaScript (Axios/Fetch), updating the existing DOM.
+
+
+============================================================
+SECTION 16
+============================================================
+
+PROJECT MEMORY
+
+• Workspace Memory:
+  The absolute state of all active construction entities stored in MongoDB (workers, budgets, inventory, etc.). This lists current items, providing context to the AI model before every conversation turn.
+• Chat Memory:
+  The conversational exchange log. We slice and send the last 8 messages (`chat_history[-8:]`) to the Gemini API inside the prompt payload. This lets the AI resolve pronouns ("assign Rajesh to it") without overloading the model's prompt limits.
+• Database Memory:
+  Persistent storage. While Workspace and Chat memories are converted to text contexts during API transactions, the database acts as the single source of truth.
+• Limitations:
+  - Gemini's rate limits (specifically free-tier quotas).
+  - Truncated chat memory (only the last 8 messages are analyzed for conversation context, meaning details from earlier in the chat log are not remembered by the AI model).
+
+
+============================================================
+SECTION 17
+============================================================
+
+ERROR HANDLING
+
+• API Failures:
+  FastAPI returns standard status codes (400 Bad Request, 401 Unauthorized, 422 Unprocessable, 500 Server Error). Axios rejects the promise, and the React context catches the exception, rendering user-facing error overlays or alert dialogs.
+• Gemini Failures and Rate Limits (429):
+  If Gemini fails due to network issues, the backend returns a conversational text error message. If the free-tier quota is hit (429 Resource Exhausted), `gemini_service.py` intercepts the error and returns a customized dynamic form widget warning card detailing the resolution steps.
+• Google OAuth Failures:
+  If a Google API call fails due to expired or missing configurations, FastAPI raises a 401 error. The frontend context catches it and prompts the user to connect their Google Workspace account.
+• Validation and Fallbacks:
+  Pydantic validates incoming endpoints. The frontend uses input types (like `type="tel"` or `required={required}`) to enforce local browser validation before dispatches occur.
+
+
+============================================================
+SECTION 18
+============================================================
+
+SECURITY
+
+• API Keys and Environment Variables:
+  Sensitive credentials (Gemini API keys, Google Client Secrets) are stored inside the backend `.env` file, loaded into the environment at startup, and never exposed to public repositories.
+• CORS Configuration:
+  The backend configures `CORSMiddleware` to prevent unauthorized cross-origin requests.
+• Input Validation:
+  All API payloads are parsed through Pydantic schemas, validating type alignments and formatting issues.
+• Injection Protection:
+  MongoDB driver (Motor) queries documents using dict parameters. Since we construct queries using structured keys rather than string concatenation, SQL/NoSQL injection is prevented.
+
+
+============================================================
+SECTION 19
+============================================================
+
+PERFORMANCE
+
+• Async Architecture:
+  FastAPI and Motor execute concurrent non-blocking operations, keeping server resources unblocked during long network calls to external APIs.
+• React Performance and Reconciliation:
+  Uses Virtual DOM diffing to execute localized updates, preventing unnecessary browser layout reflows.
+• Context API vs Redux:
+  Context provides a lightweight state wrapper that matches the project's scale, avoiding the performance and runtime overhead of Redux middleware.
+• Batching:
+  React automatically batches consecutive state updates, reducing render counts and layout calculations.
+
+
+============================================================
+SECTION 20
+============================================================
+
+INTERVIEW QUESTIONS (100 Q&A)
+
+Here are 100 technical interview questions with exhaustive answers, divided into categories:
+
+---------------------------------------------------------
+EASY QUESTIONS (1-15)
+---------------------------------------------------------
+1. What is React?
+   Answer: React is an open-source, component-based front-end JavaScript library used to build single-page applications.
+
+2. What is FastAPI?
+   Answer: FastAPI is a modern, fast (high-performance), web framework for building APIs with Python based on standard Python type hints.
+
+3. What is MongoDB?
+   Answer: MongoDB is a document-based, open-source NoSQL database that stores data in JSON-like documents with dynamic schemas.
+
+4. What is Vite?
+   Answer: Vite is a modern frontend build tool that is extremely fast, serving files over native ES modules during development and using Rollup for production builds.
+
+5. What does REST stand for?
+   Answer: Representational State Transfer. It is an architectural style that utilizes HTTP methods (GET, POST, PUT, DELETE) to manage resources.
+
+6. What is the Virtual DOM in React?
+   Answer: A programming concept where a lightweight virtual representation of the UI is kept in memory and synced with the real DOM via ReactDOM.
+
+7. What is Pydantic in Python?
+   Answer: Pydantic is a data validation and settings management library using Python type annotations. It enforces type hints at runtime.
+
+8. What is the difference between SQL and NoSQL?
+   Answer: SQL databases are relational and have a fixed schema. NoSQL databases are non-relational and support dynamic schemas.
+
+9. What is CORS?
+   Answer: Cross-Origin Resource Sharing. A browser security mechanism that restricts resources on a web page from being requested from another domain.
+
+10. What is the purpose of `.env` files?
+    Answer: To declare environment variables that hold API keys and configurations separate from codebase repositories.
+
+11. What does JSX stand for?
+    Answer: JavaScript XML. A syntax extension for JavaScript that allows writing HTML-like code directly inside React.
+
+12. What does asynchronous mean in programming?
+    Answer: It allows long-running requests to be sent in the background, permitting other code execution to continue without blocking.
+
+13. What is a React Hook?
+    Answer: A specialized function that lets functional React components access state and lifecycle features.
+
+14. What is the default port for FastAPI and React?
+    Answer: FastAPI defaults to port 8000; Vite React projects default to port 5173.
+
+15. What does the `npm run dev` command do?
+    Answer: It starts the Vite development server locally, compiling and serving components.
+
+---------------------------------------------------------
+MEDIUM QUESTIONS (16-40)
+---------------------------------------------------------
+16. How does `useState` work in React?
+    Answer: It returns a stateful value and a setter function to update it. Mutating the state variable directly does not trigger updates; the setter must be used.
+
+17. Why is `useEffect` called a lifecycle hook?
+    Answer: It allows functional components to run side effects (fetching data, subscriptions) that correspond to lifecycle phases (mount, update, unmount).
+
+18. What is `useRef` used for in our Chat scroll logic?
+    Answer: It creates a persistent reference to the bottom div. Calling `ref.current.scrollIntoView()` programmatically scrolls the container without causing a rerender.
+
+19. Explain what the Motor package does in our FastAPI app.
+    Answer: Motor is an asynchronous, non-blocking Python driver for MongoDB. It allows FastAPI to query the database without blocking the event loop.
+
+20. How does FastAPI automatically generate documentation?
+    Answer: It inspects route decorators and Pydantic schemas to construct an OpenAPI description, which it serves using Swagger UI at `/docs`.
+
+21. What is an ASGI server like Uvicorn?
+    Answer: Asynchronous Server Gateway Interface. It is the successor to WSGI, allowing Python applications to run asynchronously and support WebSockets.
+
+22. Explain how structured output is enforced in the Gemini API.
+    Answer: We supply a JSON schema to `response_schema` and set the MIME type to `application/json`. The model is constrained to only output tokens that match this structure.
+
+23. What is the difference between GET and POST requests?
+    Answer: GET reads resources and is idempotent, passing arguments in the URL. POST creates resources, is non-idempotent, and passes payload parameters in the HTTP body.
+
+24. How is Context API used in this project?
+    Answer: It exposes workspace state variables (workers list, chat lists) and API triggers globally to all sub-components.
+
+25. What is the difference between PUT and PATCH?
+    Answer: PUT replaces the target resource entirely. PATCH performs partial updates. In this project, we use PUT to execute updates on collections.
+
+26. Why do we need to serialize MongoDB documents before returning them?
+    Answer: MongoDB uses ObjectIds for primary keys, which Python's JSON encoder cannot parse. Serialization converts them into string types.
+
+27. What is exponential backoff with jitter?
+    Answer: A retry strategy that delays attempts exponentially (e.g., 2s, 4s, 8s) and adds random fluctuations (jitter) to prevent hitting APIs all at once.
+
+28. How does the chat feed automatically scroll to the bottom?
+    Answer: A `useEffect` watches the `chatHistory` array. When messages change, it fires a scroll call on the `messagesEndRef` element.
+
+29. Explain how Pydantic's `Field(default_factory=time.time)` works.
+    Answer: It generates a dynamic timestamp at the exact moment a model instance is instantiated, serving as a creation timestamp.
+
+30. What is React's StrictMode?
+    Answer: A development-only wrapper that helps identify side-effects, double-invoking mount hooks to catch memory leaks and outdated APIs.
+
+31. How does the system handle cascade deletes?
+    Answer: When an item is deleted (e.g. via `/api/workers/id`), the backend deletes the record and removes any chat widgets referencing that `dataId`.
+
+32. What is the role of `google_tokens` collection?
+    Answer: It persists OAuth2 refresh and access tokens, allowing the backend to call Google APIs in the background.
+
+33. How does the app check if Google Workspace is connected?
+    Answer: The client GETs `/api/auth/status`. The backend checks if a credential document exists in `google_tokens`.
+
+34. How does the front-end know what fields to render in the form?
+    Answer: The widget JSON contains a fields array. React loops over this array and generates inputs matching the field type attribute.
+
+35. Why do we set Gemini's temperature to 0.15?
+    Answer: To force the model to be highly deterministic and follow system prompt schema instructions, minimizing creative deviations.
+
+36. What is the difference between `npm install` and `npm run build`?
+    Answer: Install downloads packages into `node_modules`. Build compiles and bundles files into static assets.
+
+37. What is a single page application (SPA)?
+    Answer: A web app that loads a single HTML page and dynamically updates content as the user interacts, eliminating page refreshes.
+
+38. How is the CORS middleware declared in FastAPI?
+    Answer: By using `app.add_middleware(CORSMiddleware)` and configuring allowed origins, methods, and headers.
+
+39. What is a controlled input in React?
+    Answer: An input whose value is bound to a state variable and updated via an `onChange` handler.
+
+40. What is standard JSON syntax?
+    Answer: Key-value structure where keys are double-quoted strings and values can be strings, numbers, booleans, arrays, or objects.
+
+---------------------------------------------------------
+ADVANCED QUESTIONS (41-70)
+---------------------------------------------------------
+41. Describe React's Reconciliation process.
+    Answer: When state changes, React builds a virtual DOM. It uses a diffing algorithm to compare this new tree with the old one, targeting only changed elements to update the physical DOM.
+
+42. How does the Python event loop manage async calls?
+    Answer: The loop runs tasks. When a task hits an `await` point (like MongoDB queries or Gemini calls), the loop pauses it, executes other ready tasks, and resumes once the I/O event resolves.
+
+43. Explain how the Google OAuth2 redirect flow works in our application.
+    Answer: The client gets a URL from `/api/auth/url` and redirects the user. Google prompts consent, redirects to `/api/auth/callback` with an auth code, and the backend exchanges it for tokens.
+
+44. Why did we choose a Pydantic base class `ProjectBaseModel`?
+    Answer: To enforce global metadata structures (id, createdAt, updatedAt, version) across all documents, keeping model definitions DRY.
+
+45. How does the backend map dynamic paths using a catch-all router?
+    Answer: `@app.get("/api/{category}")` captures paths as a parameter. It checks if the category matches our COLLECTIONS dictionary and directs it to MongoDB.
+
+46. What would happen if we didn't use `load_dotenv(override=True)`?
+    Answer: The OS-level environment variables would override the local `.env` variables, which can lead to server initialization failures if key updates are not registered.
+
+47. Explain the memory design of our AI Agent.
+    Answer: We maintain database collections (Workspace Memory), active session history (Chat Logs), and current logs. The backend compiles these into the Gemini request prompt dynamically.
+
+48. How do we prevent race conditions during concurrent form submits?
+    Answer: We serialize operations. When save is clicked, the UI disables buttons. In MongoDB, version counters are incremented on updates.
+
+49. What is the significance of the `nullable: True` property in the Gemini response schema?
+    Answer: It indicates that attributes (like `submittedData` or options lists) can be null or absent in the output, preventing validation crashes.
+
+50. Explain the visual difference between UniversalFormWidget and SummaryCard.
+    Answer: `UniversalFormWidget` renders editable input fields. `SummaryCard` renders structured read-only grids, custom icons, and action buttons.
+
+51. How does the backend prevent Pydantic validation errors on GET requests?
+    Answer: It queries documents as raw dictionaries and serializes them (converts ObjectIds to strings) before serialization occurs.
+
+52. What is the impact of omitting the dependency array in React's `useEffect`?
+    Answer: The hook runs on every render, which can cause infinite loops if it contains state modifications.
+
+53. How do we pass props to dynamically rendered components?
+    Answer: By destructuring props onto the target element (e.g. `<WidgetRenderer widget={widget} onSave={handleSave} />`).
+
+54. What is the difference between client-side and server-side routing?
+    Answer: Client-side routing intercepts page changes and updates elements without reloading the page. Server-side routing makes requests to the server for fresh page layouts.
+
+55. Why is a document database like MongoDB more scalable than SQL?
+    Answer: MongoDB partitions documents horizontally (sharding) because documents are self-contained, unlike relational databases that require tables locking.
+
+56. What happens if a user submits a form widget and the network cuts out?
+    Answer: Axios rejects the request. The local widget remains in its active form state, letting the user retry once connection is restored.
+
+57. How do we handle Google Token refreshes?
+    Answer: In `google_service_helper.py`, `get_google_credentials()` checks token expiration. If expired, it triggers `creds.refresh(Request())` and updates MongoDB.
+
+58. What is the purpose of the `isChatLoading` state?
+    Answer: It tracks request status, disabling inputs and rendering a thinking spinner in the chat panel.
+
+59. How does MongoDB index data?
+    Answer: By building B-trees. This speeds up query times by avoiding complete collection scans.
+
+60. What is JSX compilation?
+    Answer: Browsers cannot read JSX. Vite processes JSX using compilers (like esbuild), converting it into standard `React.createElement` functions.
+
+61. What is the event loop lag?
+    Answer: If synchronous CPU code blocks the event loop, it cannot process incoming requests, leading to server timeouts. We avoid this by using asynchronous I/O.
+
+62. What does `upsert=True` do in our Google tokens update query?
+    Answer: If a token document doesn't exist, it inserts it. If it does exist, it updates it.
+
+63. Why does our application use `framer-motion`?
+    Answer: To provide smooth spring physics and layout animations on modals and widget expansions, giving a premium feel.
+
+64. How does the front-end intercept Google auth parameters on load?
+    Answer: `ProjectContext.jsx` reads `window.location.search`. If it matches success or error, it alerts the user and cleans the URL query parameters.
+
+65. What is the difference between `time.time()` in Python and `Date.now()` in JS?
+    Answer: Python returns seconds as a float. JavaScript returns milliseconds as an integer.
+
+66. What is the purpose of `is_valid_object_id` in `main.py`?
+    Answer: It verifies that input strings conform to the hex format required to create a MongoDB ObjectId, preventing server crashes.
+
+67. Explain how the cascading deletion cleans up chat history widgets.
+    Answer: When a workspace item is deleted, the backend deletes chat history documents where `widget.dataId` matches the item ID.
+
+68. What are React Keys, and why do they need to be unique?
+    Answer: Keys help React identify which items have changed, been added, or been removed, preventing reconciliation errors.
+
+69. What is modular code structure?
+    Answer: Structuring codebases into separate modules with single responsibilities.
+
+70. Explain how the catch-all router parses collection categories.
+    Answer: It intercepts `/api/{category}`, checking if the path parameter matches our valid list before executing operations.
+
+---------------------------------------------------------
+ARCHITECTURE & SYSTEM DESIGN QUESTIONS (71-100)
+---------------------------------------------------------
+71. Design a system that handles 10,000 requests/sec. How would this architecture scale?
+    Answer: Add load balancers, run multiple FastAPI instances via Docker, use Redis for caching, scale MongoDB via sharding, and use queuing systems for background tasks.
+
+72. Why did we avoid Redux in this architecture?
+    Answer: Context API is native, lightweight, and sufficient for this project's scope, avoiding the boilerplate and overhead of Redux.
+
+73. Why use structured JSON validation at the API layer instead of checking parameters manually?
+    Answer: Pydantic handles validation automatically, returning standardized errors and keeping handlers clean.
+
+74. How does the backend ensure data consistency between chat history widgets and workspace documents?
+    Answer: It implements a Single Source of Truth strategy. The saved chat widget embeds the updated document in `submittedData` and references its ID.
+
+75. What are the security implications of using `allow_origins=["*"]`?
+    Answer: It permits any client origin to access the API. For production, this must be restricted to the verified frontend domain.
+
+76. How would you secure this application?
+    Answer: Implement HTTPS, configure strict CORS, restrict database access to local networks, and run database inputs through sanitizers.
+
+77. Explain why we use an async MongoDB client.
+    Answer: It matches FastAPI's async routing, allowing the event loop to handle concurrent client requests during database operations.
+
+78. What is the primary limitation of our conversation history memory?
+    Answer: We only pass the last 8 messages. If a user refers to an item from earlier in the chat, the AI will not remember it.
+
+79. How would you expand the memory window without hitting token limits?
+    Answer: Implement a vector database (like Chroma or Pinecone) to perform semantic search retrieval on old messages.
+
+80. Why is standard error handling critical in production APIs?
+    Answer: It prevents the API from leaking database details or stack traces to clients, returning clean error messages instead.
+
+81. Explain the role of `google_auth_oauthlib`.
+    Answer: It facilitates OAuth2 authorization codes exchanges, parsing redirect parameters.
+
+82. How does the React virtual DOM improve performance?
+    Answer: It batches updates and minimizes direct DOM manipulations, which are computationally expensive.
+
+83. What is the performance difference between MongoDB's `find` and `find_one`?
+    Answer: `find_one` halts execution once a match is found. `find` returns a cursor that searches the database based on collection parameters.
+
+84. What is a Pydantic validation decorator?
+    Answer: A method decorator (like `@validator`) used to validate field properties.
+
+85. Why do we store Google credentials in MongoDB instead of local files?
+    Answer: To allow scaling. If we run multiple backend servers behind a load balancer, they can all access the shared database.
+
+86. What is a RESTful resource?
+    Answer: An entity identified by a URI (like `/api/workers`) that can be manipulated using standard HTTP verbs.
+
+87. Explain why we use JWT tokens in production architectures.
+    Answer: JSON Web Tokens are stateless, containing signed payload data that the backend can verify without database lookups.
+
+88. What is the purpose of standardizing button actions (like `createWorker`)?
+    Answer: It provides a contract. The front-end reads the action key and calls the correct API endpoint and Registry icons.
+
+89. How would you handle a database failure during form submission?
+    Answer: Wrap the database call in a try/catch block. If it fails, raise an exception, preventing the chat history from updating.
+
+90. Why is Vite React built with ES Modules?
+    Answer: It lets the browser request and compile modules on demand, improving startup times.
+
+91. What is the difference between `npm install` and `npm install --save-dev`?
+    Answer: `--save-dev` saves dependencies only needed for development and testing.
+
+92. Explain what a MongoDB collection index does.
+    Answer: It structures a field (like `conversationId`) to speed up search queries.
+
+93. What is the purpose of Pydantic response models?
+    Answer: They filter output dictionaries, ensuring only specified attributes are returned.
+
+94. What is the difference between async def and def in FastAPI?
+    Answer: `async def` runs inside the event loop. `def` runs in an external thread pool, introducing slight overhead.
+
+95. How does the frontend handle API failures gracefully?
+    Answer: It displays error messages, alerts, or fallbacks to keep the app responsive.
+
+96. What is a webhook?
+    Answer: A server-to-server HTTP POST request triggered by an event, used to push real-time updates.
+
+97. How does Pydantic generate timestamps on validation?
+    Answer: By using default factories (`Field(default_factory=time.time)`) that execute at instantiation.
+
+98. Why does the app clear local states when creating a new chat?
+    Answer: To clear the dashboard and chat feed, isolating the new conversation session.
+
+99. Explain how search parameters are read in React.
+    Answer: By using `new URLSearchParams(window.location.search)` to parse query strings.
+
+100. Why is this project suited for a technical portfolio?
+    Answer: It showcases full-stack expertise: async APIs, NoSQL design, stateful React, and generative AI dynamic UI orchestration.
+
+
+============================================================
+SECTION 21
+============================================================
+
+JURY QUESTIONS (AND IDEAL ANSWERS)
+
+1. Why FastAPI?
+   Answer: It provides async I/O support, automatic Pydantic request validation, and high performance comparable to Node.js, making it ideal for managing long-running API integrations.
+
+2. Why MongoDB?
+   Answer: Its schema-less design allows us to store dynamic form widgets and unstructured chat history documents directly as JSON, avoiding complex SQL migrations.
+
+3. Why AI Agent?
+   Answer: It provides a conversational gateway to database operations, resolving pronouns, extracting details, and generating context-aware UI forms.
+
+4. Why Context API?
+   Answer: It serves as a global state manager for the workspace collections and chat history without the boilerplate and complexity of Redux.
+
+5. Why Widgets?
+   Answer: Instead of using hardcoded forms, widgets allow the AI to generate tailored forms on the fly, reducing interface clutter.
+
+6. Why not React Query?
+   Answer: React Query is excellent, but our state updates are tightly integrated with the chat history. Managing these states within a single Context provider is cleaner for this scope.
+
+7. How does React rerender?
+   Answer: State mutations trigger React to build a new Virtual DOM tree. It diffs this against the old tree and updates only the changed elements in the browser DOM.
+
+8. How does Gemini know?
+   Answer: The backend fetches the database collections and the last 8 chat messages, compiles them into a text context, and injects them into the model prompt.
+
+9. How is memory maintained?
+   Answer: Short-term memory is managed via the chat logs sent to Gemini, and long-term memory is persisted in MongoDB workspace tables.
+
+10. How is CRUD achieved?
+    Answer: Through catch-all REST endpoints (`/api/{category}`) in FastAPI that perform database queries based on path parameters.
+
+11. How does update happen?
+    Answer: PUT requests edit records in MongoDB. The backend returns the updated item, and the frontend updates its state arrays, triggering a rerender.
+
+12. How is a widget replaced?
+    Answer: Submit calls `saveWorkspaceItem()`, inserts the record, and calls `updateChatMessageWidget()` to change the widget status to `"saved"`, rendering it as a `SummaryCard`.
+
+13. Why JSON Schema?
+    Answer: To constrain Gemini to output structured JSON matching our Pydantic interface, preventing parsing crashes in the frontend.
+
+14. How does the backend know what the frontend should render?
+    Answer: The backend returns the JSON widget schema generated by Gemini. The frontend reads the `type` and `fields` array to render inputs.
+
+15. What happens if a database write fails but Gemini succeeds?
+    Answer: The write failure raises an exception. The frontend catches it, displays an alert, and keeps the widget active so the user does not lose their progress.
+
+
+============================================================
+SECTION 22
+============================================================
+
+PROJECT STORY (INTERVIEW GUIDE)
+
+How to present this project in a 10-15 minute interview:
+
+1. Introduction (2 mins):
+   Explain the project: an AI-orchestrated Construction Management Dashboard designed to solve administrative data-entry friction. Mention the stack: React, FastAPI, MongoDB, and Gemini 2.5 Flash.
+2. Architecture Walkthrough (3 mins):
+   Describe the decoupled structure. Explain how the backend serializes the database state as context for Gemini. Detail the structured output schema that constrains Gemini to return valid form JSON.
+3. Live Demo Explanation (3 mins):
+   Walk through a prompt like "Add Rajesh as electrician with 30000 salary". Show the dynamic form pop up, click save, and explain how the dashboard updates in real-time. Point out the synced Google Calendar and Gmail integrations.
+4. Technical Challenges & Solutions (3 mins):
+   - Challenge: API rate limits on free-tier keys.
+     Solution: Implemented exponential backoff with jitter and error warnings.
+   - Challenge: Data consistency between chat widgets and database tables.
+     Solution: Built a single source of truth references where saved widgets fetch their data from the database.
+5. Future Improvements (2 mins):
+   Mention implementing vector databases (RAG) for long-term chat memory, and adding offline sync capabilities for low-connectivity job sites.
+
+
+============================================================
+SECTION 23
+============================================================
+
+LINE BY LINE CODE GUIDE
+
+---------------------------------------------------------
+23.1 BACKEND FILE GUIDE
+---------------------------------------------------------
+
+• `database.py`
+  - imports: AsyncIOMotorClient (for async MongoDB connections), ObjectId (to handle MongoDB key classes).
+  - `MONGO_URI` / `DB_NAME`: Loads configs from environment.
+  - `client`: Async database connection client.
+  - `serialize_doc(doc)`: Checks if a document exists. Converts `_id` to a string named `id` and deletes the internal `_id` key, making it JSON-serializable.
+  - `serialize_list(docs)`: Compiles serializations across lists of documents.
+
+• `models.py`
+  - imports: Pydantic `BaseModel`, Field, typing utils, and time.
+  - `ProjectBaseModel`: Enforces standard attributes: `id` (optional string), `createdAt`, `updatedAt` (time factories), and `version` (starts at 1).
+  - Models (`WorkerModel`, `BudgetModel`, etc.): Inherit from `ProjectBaseModel`, declaring expected data fields.
+  - `WidgetState`: Schema validation for forms (type, title, fields list, buttons list, status, dataId reference, and submittedData).
+  - `ChatMessage`: Schema validation for chat logs (role: user/model, text, widget configuration).
+  - `ChatRequest`: Validates client chat payloads (message text, conversationId).
+
+• `gemini_service.py`
+  - imports: json, re, asyncio, and the google `genai` client.
+  - `generate_response(prompt, context)`:
+    - Checks for API keys.
+    - Serializes MongoDB context dictionary tables (workers, budgets, inventory) into list strings.
+    - Creates `system_instruction` directing Gemini to behave as an assistant, resolve pronouns, and output structured JSON widgets.
+    - Enforces strict response structure using `response_schema`.
+    - Implements retries with exponential backoffs and jitter for API requests.
+    - Catches rate limit errors (429) and returns a customized dynamic form widget warning card.
+
+• `google_service_helper.py`
+  - imports: OAuth scopes, Google API Discovery `build`, credentials helper, database link.
+  - `get_google_credentials()`: Fetches token data document from `google_tokens`. Constructs a Credentials instance. If expired, it triggers `creds.refresh()` and saves the new token to MongoDB.
+  - `send_gmail_email()`: Connects to the Gmail API, encodes the email message as Base64url, and dispatches it.
+  - `create_calendar_event()`: Formats start and end times, sets attendees list, requests Google Meet conference creation, and inserts the event into the calendar.
+
+• `main.py`
+  - Setup: Configures FastAPI, loads environment configurations, and configures CORS middleware.
+  - OAuth Routes: `/api/auth/url` returns Google OAuth consent page link. `/api/auth/callback` handles auth codes exchanges, stores tokens in `google_tokens`, and redirects users to the React client.
+  - Action Routes: `/api/emails` and `/api/meetings` execute Gmail/Calendar API calls and insert records into MongoDB.
+  - Chat Routes: `/api/chat` coordinates prompts, compiles contexts, queries Gemini, saves messages to the database, and returns the response.
+  - CRUD Routes: Exposes catch-all paths (`/api/{category}`) that perform GET, POST, PUT, and DELETE operations based on the path parameters.
+
+---------------------------------------------------------
+23.2 FRONTEND FILE GUIDE
+---------------------------------------------------------
+
+• `ProjectContext.jsx`
+  - Setup: Declares states for all categories, chat history, and active conversations.
+  - `saveWorkspaceItem(category, item)`: Scopes the item to the active conversation during creation. Dispatches POST (for new items) or PUT (for edits) requests, updates state arrays, and updates corresponding widgets in `chatHistory`.
+  - `deleteWorkspaceItem(category, itemId)`: Sends DELETE request and cleans up matching widget cards (Cascade delete).
+  - `sendChatMessage(text)`: Creates a temporary user message, issues a POST request, syncs the chat history, and refreshes the workspace state.
+
+• `Sidebar.jsx`
+  - Collapses/Expands sidebar using local storage states. Groups conversations by date (Today, Yesterday, Previous) and manages conversation creation, deletion, and renaming.
+
+• `Workspace.jsx`
+  - Declares tabs mapped to collections. Renders cards containing detail lists, action triggers, and delete confirmation modals.
+
+• `Chat.jsx`
+  - Renders message feeds, auto-scroll elements, thinking spinner, Google connection banners, and clear history overlays.
+
+• `MessageBubble.jsx`
+  - Renders text or forms. `handleSave()` calls `saveWorkspaceItem`, sets widget status to `"saved"`, and links submittedData. `handleEdit()` re-opens forms by changing status to `"active"`.
+
+• `WidgetRenderer.jsx`
+  - Chooses whether to render a `SummaryCard` or `UniversalFormWidget` based on `widget.status`.
+
+• `UniversalFormWidget.jsx`
+  - Mounts input elements. Loops over fields array, matching attributes (`select`, `textarea`, `date`, `text`) to handle dynamic changes.
+
+• `SummaryCard.jsx`
+  - Renders read-only grids of submitted data, color-coded borders, Google Meet links, and edit buttons.
+
+
+============================================================
+SECTION 24
+============================================================
+
+COMPLETE EXECUTION TRACE
+
+Complete request trace: User types "Add an electrical engineer"
+
+1. Frontend Typing: User types the message and presses Enter.
+2. Input state updates: `Chat.jsx` triggers `handleSubmit()`.
+3. Dispatching message: Calls `sendChatMessage("Add an electrical engineer")` in `ProjectContext.jsx`.
+4. Visual feedback: The frontend appends a temporary message with a spinner, scheduling a rendering update.
+5. Network request: Axios posts message and active `conversationId` to `/api/chat`.
+6. API Routing: FastAPI routes the request to `send_chat_message()` in `main.py`.
+7. Validation check: Pydantic verifies the request payload matches `ChatRequest`.
+8. Context generation: The backend fetches active collections and recent chat logs from MongoDB, converting them into strings inside `gemini_service.py`.
+9. AI invocation: The Google GenAI client calls Gemini 2.5 Flash, sending the prompt, system instructions, and response schema.
+10. JSON response: Gemini generates a JSON payload:
+    `{ "responseType": "widget", "message": "I've created a worker registration form...", "widget": { "type": "form", "title": "Worker Registration", ... } }`
+11. Saving message: The backend inserts the model message into the `chat_history` collection.
+12. Returning payload: FastAPI serializes the document and returns it to the client.
+13. Frontend processing: Axios resolves the promise. Context updates state arrays, replacing the temporary bubble and clearing the spinner.
+14. React Rerendering: The message feed updates. The AI message bubble contains a widget.
+15. Dynamic Form Mount: `WidgetRenderer.jsx` mounts `UniversalFormWidget.jsx` in active state.
+16. Form Prefills: The inputs render, pre-filled with the role "Electrician" extracted by Gemini.
+17. DOM Reconciliation: React patches the browser DOM, displaying the interactive registration card on the screen.
+
+
